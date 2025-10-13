@@ -1,4 +1,9 @@
 #version 430 core
+
+layout(std430, binding = 0) buffer VoxelData {
+    uint bitCloud[];
+};
+
 out vec4 FragColor;
 
 // player position
@@ -15,27 +20,43 @@ uniform float pDirZ;
 uniform float iTime;
 
 // constants
-const vec3 s = vec3(0.4,0.4,0.4);
-const float e = 0.001;
 
-vec3 getDomainID(vec3 p) {
-    return clamp(round(p/s),-3.0,3.0);
+
+// morton encoding/decoding
+uint part1by2(uint x) {
+    x &= 0x000003FFu;
+    x = (x | (x << 16)) & 0x030000FFu;
+    x = (x | (x << 8))  & 0x0300F00Fu;
+    x = (x | (x << 4))  & 0x030C30C3u;
+    x = (x | (x << 2))  & 0x09249249u;
+    return x;
 }
 
-float getPlanet(vec3 p) {
-    vec3 q = abs(p - s*getDomainID(p))-0.1;
-    return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
-    //vec3 q = p - s*getDomainID(p);
-    //return length(q)-0.1;
+uint morton3D(uint x, uint y, uint z) {
+    return part1by2(x) | (part1by2(y) << 1) | (part1by2(z) << 2);
 }
 
-vec3 getNormal(vec3 p) {
-    // surface normals
-    return normalize(vec3(
-        getPlanet(p + vec3(e,0,0)) - getPlanet(p - vec3(e,0,0)),
-        getPlanet(p + vec3(0,e,0)) - getPlanet(p - vec3(0,e,0)),
-        getPlanet(p + vec3(0,0,e)) - getPlanet(p - vec3(0,0,e))
-    ));
+uint compact1by2(uint x) {
+    x &= 0x09249249u; // 10 bits
+    x = (x ^ (x >> 2)) & 0x030C30C3u;
+    x = (x ^ (x >> 4)) & 0x0300F00Fu;
+    x = (x ^ (x >> 8)) & 0x030000FFu;
+    x = (x ^ (x >> 16)) & 0x000003FFu;
+    return x;
+}
+
+uvec3 mortonDecode3D(uint m) {
+    uint x = compact1by2(m);
+    uint y = compact1by2(m >> 1);
+    uint z = compact1by2(m >> 2);
+    return uvec3(x, y, z);
+}
+
+// checks if voxel is solid
+bool checkVoxel(uint m) {
+    uint idx = m >> 5;           // which 32-bit word (divide by 32)
+    uint bit = m & 31u;          // which bit in that word (mod 32)
+    return ((bitCloud[idx] >> bit) & 1u) != 0u;
 }
 
 // camera shizzle
@@ -47,27 +68,6 @@ vec3 getRayDir(vec2 fragCoord, vec2 res, vec3 lookAt, float zoom) {
     return normalize(f + zoom * (uv.x*r + uv.y*u));
 }
 
-float lightMarch(vec3 ro, vec3 lightPos, float lightStren) {
-    float lightMod = 1.0/lightStren;
-    vec3 rd = normalize(lightPos-ro);
-    float t = 0.0;
-    float dist = length(ro-lightPos);
-    float tsid = 1.0/dist;
-    float atten = 0.0;
-    // normal offset
-    ro += getNormal(ro)*e;
-
-    for (int i = 0; i < 128; i++) {
-        vec3 p = ro + t * rd;
-        float d = getPlanet(p);
-        bool hit = (d<=e);
-        if (hit) atten -= d; // ray hits something in way of light source
-        if (t > dist - e) break;
-        t += hit ? 0.01 : d;
-    }
-    return dist*lightMod+min(atten*8.0*tsid,dist*lightMod*0.6);
-}
-
 // main raymarching loop
 void main() {
     // camera setup
@@ -75,20 +75,41 @@ void main() {
     vec3 ro = vec3(pPosX,pPosY,pPosZ);
     vec3 lookAt = vec3(pDirX, pDirY, pDirZ);
     vec3 rd = getRayDir(gl_FragCoord.xy, vec2(800,600), lookAt, 1.0);
+    
+    // voxel space setup
+    vec3 stride = sign(rd);
+    ivec3 istride = ivec3(stride);
+    ivec3 vp = ivec3(floor(ro)); //starting position
+    // inverse of rd
+    vec3 dr = 1.0 / max(abs(rd), vec3(1e-6));
 
+    // distance to first voxel boundary
+    vec3 bound;
+    bound.x = (rd.x > 0.0) ? (float(vp.x) + 1.0 - ro.x) : (ro.x - float(vp.x));
+    bound.y = (rd.y > 0.0) ? (float(vp.y) + 1.0 - ro.y) : (ro.y - float(vp.y));
+    bound.z = (rd.z > 0.0) ? (float(vp.z) + 1.0 - ro.z) : (ro.z - float(vp.z));
+
+    vec3 tMax = bound * dr;  // how far to first boundary per axis
+    vec3 tDelta = dr;    
     float t = 0.0;
 
-    for (int i = 0; i < 128; i++) {
-        vec3 p = ro + t * rd;
-        float d = getPlanet(p);
-        if (d < e) {
-            // does lighting if hits
-            float tL = lightMarch(p, 3.5*vec3(cos(iTime),1.0,sin(iTime)), 10.0);
-            //FragColor = vec4(vec3(tL,tL,tL),1.0);
-            FragColor = vec4(vec3(0.7,1.0,1.0)-vec3(tL),1.0);
-            break;
+    for (int i = 0; i < 1024; i++) {
+        uint m = morton3D(uint(vp.x),uint(vp.y),uint(vp.z));
+
+        if (checkVoxel(m)) {
+            FragColor = vec4(vec3(0.5,0.5,0.5)-length(vp-floor(ro))/100.0,1.0);
+            return;
         }
-        t += d;
-        if (t > 40.0) break;
-    }
+
+		if (tMax.x < tMax.y && tMax.x < tMax.z) { // X is closest
+			vp.x += istride.x;
+            tMax.x += tDelta.x;
+		} else if (tMax.y < tMax.z) {             // Y is closest
+			vp.y += istride.y;
+            tMax.y += tDelta.y;
+		} else {                                  // Z is closest
+			vp.z += istride.z;
+            tMax.z += tDelta.z;
+		}
+	}
 }
