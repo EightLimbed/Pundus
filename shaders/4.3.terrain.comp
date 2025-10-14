@@ -3,7 +3,7 @@
 layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in; //64 local threads is apparently sweet spot
 
 layout(std430, binding = 0) buffer VoxelData {
-    uint bitCloud[];
+    uint bitCloud[1024];
 };
 
 // helper functions
@@ -90,8 +90,8 @@ uint part1by2(uint x) {
     return x;
 }
 
-uint morton3D(uint x, uint y, uint z) {
-    return part1by2(x) | (part1by2(y) << 1) | (part1by2(z) << 2);
+uint morton3D(uvec3 id) {
+    return part1by2(id.x) | (part1by2(id.y) << 1) | (part1by2(id.z) << 2);
 }
 
 uint compact1by2(uint x) {
@@ -110,8 +110,8 @@ uvec3 mortonDecode3D(uint m) {
     return uvec3(x, y, z);
 }
 
-void setVoxel(uint x, uint y, uint z, bool filled) {
-    uint m = morton3D(x,y,z);
+void setVoxel(uvec3 p, bool filled) {
+    uint m = morton3D(p);
     uint idx = m >> 5;
     uint bit = m & 31u;
     if(filled) {
@@ -124,7 +124,7 @@ void setVoxel(uint x, uint y, uint z, bool filled) {
 void main() {
   uvec3 id = gl_GlobalInvocationID;
   //sets voxel based on wether or not it is filled
-  float height = (noise2D(vec2(id.x,id.z)/16.0) + 1.0) * 0.5 * 32.0;
+  float height = (noise2D(vec2(id.x,id.z)/32.0) + 1.0) * 0.5 * 32.0;
   bool filled = float(id.y) < height;
-  setVoxel(id.x, id.y, id.z, filled);
+  setVoxel(id, filled);
 }

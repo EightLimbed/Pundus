@@ -1,7 +1,7 @@
 #version 430 core
 
 layout(std430, binding = 0) buffer VoxelData {
-    uint bitCloud[];
+    uint bitCloud[1024];
 };
 
 out vec4 FragColor;
@@ -32,8 +32,8 @@ uint part1by2(uint x) {
     return x;
 }
 
-uint morton3D(uint x, uint y, uint z) {
-    return part1by2(x) | (part1by2(y) << 1) | (part1by2(z) << 2);
+uint morton3D(uvec3 p) {
+    return part1by2(p.x) | (part1by2(p.y) << 1) | (part1by2(p.z) << 2);
 }
 
 uint compact1by2(uint x) {
@@ -94,7 +94,7 @@ void main() {
     float t = 0.0;
 
     for (int i = 0; i < 1024; i++) {
-        uint m = morton3D(uint(vp.x),uint(vp.y),uint(vp.z));
+        uint m = morton3D(vp);
 
         if (checkVoxel(m)) {
             FragColor = vec4(vec3(0.5,0.5,0.5)-length(vp-floor(ro))/100.0,1.0);

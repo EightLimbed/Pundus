@@ -35,7 +35,7 @@ int main()
         return -1;
     }
     glfwMakeContextCurrent(window);
-    glfwSetInputMode( window, GLFW_STICKY_KEYS, 1 );
+    glfwSetInputMode(window, GLFW_STICKY_KEYS, 1);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
     // glad: load all OpenGL function pointers
@@ -81,8 +81,10 @@ int main()
 
     glDispatchCompute(chunkSize/4, chunkSize/4, chunkSize/4);
 
-    // make sure writes are visible to fragment stage
+    // make sure writes are visible to fragment shader
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+
 
     // render loop
     float deltaTime = 0.0f;
@@ -98,7 +100,7 @@ int main()
         Player.HandleInputs(window, deltaTime);
         Player.HandleMouseInput(window);
         // upload player data to GPU
-        ScreenShader.setFloat("iTime", currentTime*0.3);
+        ScreenShader.setFloat("iTime", currentTime);
         ScreenShader.setFloat("pPosX", Player.posX);
         ScreenShader.setFloat("pPosY", Player.posY);
         ScreenShader.setFloat("pPosZ", Player.posZ);
