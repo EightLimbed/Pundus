@@ -1,7 +1,8 @@
 #version 430 core
 
 layout(std430, binding = 0) buffer VoxelData {
-    uint bitCloud[1024];
+    uint bitCloud[1024]; // x
+    uint prefixArray[320]; // 10 bits for every one of 1024 groups. (10*x)/32
 };
 
 out vec4 FragColor;
@@ -20,7 +21,6 @@ uniform float pDirZ;
 uniform float iTime;
 
 // constants
-
 
 // morton encoding/decoding
 uint part1by2(uint x) {
@@ -93,7 +93,7 @@ void main() {
     vec3 tDelta = dr;    
     float t = 0.0;
 
-    for (int i = 0; i < 1024; i++) {
+    for (int i = 0; i < 128; i++) {
         uint m = morton3D(vp);
 
         if (checkVoxel(m)) {

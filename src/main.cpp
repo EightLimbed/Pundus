@@ -59,21 +59,24 @@ int main()
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
 
-    // calculate buffer size: 32^3 chunk of single bits.
-    size_t ssbo0Size = sizeof(GLuint)*1024;
+    // calculate buffer size: 32^3 chunk of single bits, with prefix array.
+    size_t ssbo0Size = sizeof(GLuint)*(1024 + 320); // 1024 for bit mask, 320 for prefix array.
 
+    //construct main buffer
     GLuint ssbo0;
     glGenBuffers(1, &ssbo0);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo0);
     glBufferData(GL_SHADER_STORAGE_BUFFER, ssbo0Size, nullptr, GL_DYNAMIC_DRAW);
 
+    // construct bitcloud array
     std::array<uint32_t, 1024> bitCloud = {};
 
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, ssbo0Size, bitCloud.data());
+    // bind bitcloud array
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(bitCloud.data()), bitCloud.data());
 
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo0);
 
-    // generate base terrain
+    // generate terrain
     TerrainShader.use();
 
     // dispatch compute shader threads, based on thread pool size of 64.
@@ -81,10 +84,11 @@ int main()
 
     glDispatchCompute(chunkSize/4, chunkSize/4, chunkSize/4);
 
+    // generate prefix array from bitcloud
+    std::array<uint32_t, 320> prefixArray = {}; //do ts in dedicated class pooper
+
     // make sure writes are visible to fragment shader
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-
 
     // render loop
     float deltaTime = 0.0f;
