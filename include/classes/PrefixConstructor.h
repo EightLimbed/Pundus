@@ -6,7 +6,6 @@
 #include <array>
 #include <vector>
 #include <bit>
-#include <bitset>
 #include <cstdint>
 #include <iostream>
 
@@ -30,6 +29,7 @@ public:
         for (int i = 0; i < NUM_TERMS; ++i) {
             uint32_t Count = __builtin_popcount(bitCloud[i]);
             RTotal += Count;
+            std::cout << "\nTerm Count: " << Count << " Running Total: " << RTotal;
             Prefixes[i] = RTotal;
         
         }
