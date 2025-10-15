@@ -55,6 +55,7 @@
         "typeinfo": "cpp",
         "variant": "cpp",
         "cstring": "cpp",
-        "iomanip": "cpp"
+        "iomanip": "cpp",
+        "bitset": "cpp"
     }
 }

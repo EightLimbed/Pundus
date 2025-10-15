@@ -5,6 +5,7 @@ layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in; // 64 local thr
 layout(std430, binding = 0) buffer VoxelData {
     uint bitCloud[1024]; // x
     uint prefixArray[320]; // 10 bits for every one of 1024 groups. (10*x)/32
+    uint blockData[];
 };
 
 // helper functions

@@ -3,6 +3,7 @@
 
 #include <classes/GLshader.h>
 #include <classes/PlayerController.h>
+#include <classes/PrefixConstructor.h>
 
 #include <iostream>
 #include <array>
@@ -68,12 +69,13 @@ int main()
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo0);
     glBufferData(GL_SHADER_STORAGE_BUFFER, ssbo0Size, nullptr, GL_DYNAMIC_DRAW);
 
-    // construct bitcloud array
-    std::array<uint32_t, 1024> bitCloud = {};
+    // construct bitcloud array, in its own scope so it is cleared automatically.
+    {
+        std::array<uint32_t, 1024> bitCloud = {};
 
     // bind bitcloud array
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(bitCloud.data()), bitCloud.data());
-
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(bitCloud.data()), bitCloud.data());
+    }
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo0);
 
     // generate terrain
@@ -84,9 +86,18 @@ int main()
 
     glDispatchCompute(chunkSize/4, chunkSize/4, chunkSize/4);
 
-    // generate prefix array from bitcloud
-    std::array<uint32_t, 320> prefixArray = {}; //do ts in dedicated class pooper
+    // initialize prefix constructor
+    PrefixConstructor Prefixer;
+    // generate and bind prefix array from bitcloud
+    {
+        std::array<uint32_t, 1024> bitCloud; // should map this later
+        glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(bitCloud), bitCloud.data());
 
+        std::array<uint32_t, 320> Prefixes = Prefixer.GeneratePrefixes(bitCloud); // prefixes made from
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 1, sizeof(Prefixes.data()), Prefixes.data());
+
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo0);
+    }
     // make sure writes are visible to fragment shader
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
@@ -126,7 +137,7 @@ int main()
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
-
+    std::cout << "FPS: " << 1.0/deltaTime; // print fps at time of closing. Good for benchmarking as prints don't slow things down.
     // glfw: terminate, clearing all previously allocated GLFW resources.
     glfwTerminate();
     return 0;
