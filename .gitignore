@@ -1,0 +1,7 @@
+# ignore libraries
+/include/glad/
+/include/glfw/
+/include/khr/
+
+# ignore libraries
+/lib/
