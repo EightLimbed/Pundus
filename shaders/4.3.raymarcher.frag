@@ -96,7 +96,7 @@ void main() {
     for (int i = 0; i < 128; i++) {
         uint m = morton3D(vp);
 
-        if (checkVoxel(m)) {
+        if (checkVoxel(m) && (32 > vp.x) && (32 > vp.y) && (32 > vp.z)) {
             float c = blockData[getDataIndex(m)];
             FragColor = vec4(vec3(c+0.5)-length(vp-floor(ro))/100.0,1.0);
             return;
