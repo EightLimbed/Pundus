@@ -2,7 +2,8 @@
 
 layout(std430, binding = 0) buffer VoxelData {
     uint bitCloud[1024]; // x
-    uint prefixArray[320]; // 10 bits for every one of 1024 groups. (10*x)/32
+    uint prefixArray[1024];
+    float blockData[];
 };
 
 out vec4 FragColor;
@@ -22,6 +23,21 @@ uniform float iTime;
 
 // constants
 
+// only call if voxel is solid, gets final index from prefix uint 
+uint getDataIndex(uint m) { 
+    uint wordIndex = m >> 5u; // divide by 32 
+
+    uint bitIndex = m & 31u; // bit within term
+
+    uint term = bitCloud[wordIndex]; // number of solids before this term
+
+    uint baseCount = prefixArray[wordIndex]; // solids before this voxel in term
+    uint localMask = (bitIndex == 0u) ? 0u : (term & ((1u << bitIndex) - 1u)); 
+    uint localOffset = bitCount(localMask);
+
+    return baseCount + localOffset;
+}
+
 // morton encoding/decoding
 uint part1by2(uint x) {
     x &= 0x000003FFu;
@@ -36,26 +52,10 @@ uint morton3D(uvec3 p) {
     return part1by2(p.x) | (part1by2(p.y) << 1) | (part1by2(p.z) << 2);
 }
 
-uint compact1by2(uint x) {
-    x &= 0x09249249u; // 10 bits
-    x = (x ^ (x >> 2)) & 0x030C30C3u;
-    x = (x ^ (x >> 4)) & 0x0300F00Fu;
-    x = (x ^ (x >> 8)) & 0x030000FFu;
-    x = (x ^ (x >> 16)) & 0x000003FFu;
-    return x;
-}
-
-uvec3 mortonDecode3D(uint m) {
-    uint x = compact1by2(m);
-    uint y = compact1by2(m >> 1);
-    uint z = compact1by2(m >> 2);
-    return uvec3(x, y, z);
-}
-
 // checks if voxel is solid
 bool checkVoxel(uint m) {
-    uint idx = m >> 5;           // which 32-bit word (divide by 32)
-    uint bit = m & 31u;          // which bit in that word (mod 32)
+    uint idx = m >> 5u; // which 32-bit word (divide by 32)
+    uint bit = m & 31u; // which bit in that word (mod 32)
     return ((bitCloud[idx] >> bit) & 1u) != 0u;
 }
 
@@ -89,7 +89,7 @@ void main() {
     bound.y = (rd.y > 0.0) ? (float(vp.y) + 1.0 - ro.y) : (ro.y - float(vp.y));
     bound.z = (rd.z > 0.0) ? (float(vp.z) + 1.0 - ro.z) : (ro.z - float(vp.z));
 
-    vec3 tMax = bound * dr;  // how far to first boundary per axis
+    vec3 tMax = bound * dr; // how far to first boundary per axis
     vec3 tDelta = dr;    
     float t = 0.0;
 
@@ -97,7 +97,8 @@ void main() {
         uint m = morton3D(vp);
 
         if (checkVoxel(m)) {
-            FragColor = vec4(vec3(0.5,0.5,0.5)-length(vp-floor(ro))/100.0,1.0);
+            float c = blockData[getDataIndex(m)];
+            FragColor = vec4(vec3(c+0.5)-length(vp-floor(ro))/100.0,1.0);
             return;
         }
 
