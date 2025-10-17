@@ -15,6 +15,12 @@ void processInput(GLFWwindow *window);
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
+static constexpr int CHUNK_SIZE = 32;
+static constexpr int NUM_VOXELS = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
+static constexpr int TERM_BITS  = 32;
+static constexpr int NUM_TERMS  = NUM_VOXELS / TERM_BITS; // 32768 / 32 = 1024
+static constexpr int PREFIX_BITS = 10; // 10-bit prefix values
+
 int main()
 {
     // glfw: initialize and configure
@@ -62,7 +68,7 @@ int main()
     glBindVertexArray(vao);
 
     // calculate buffer size: 32^3 chunk of single bits, with prefix array.
-    size_t ssbo0Size = sizeof(GLuint)*(1024 + 1024) + sizeof(GLfloat) * 32768; // 1024 for bit mask, 320 for prefix array.
+    size_t ssbo0Size = sizeof(GLuint)*(NUM_TERMS + NUM_TERMS + NUM_VOXELS); // 1024 for bit mask, 1024 for prefix array, more for voxels.
 
     //construct main buffer
     GLuint ssbo0;
@@ -72,7 +78,7 @@ int main()
 
     // construct bitcloud array, in its own scope so it is cleared automatically.
     {
-        std::array<uint32_t, 1024> bitCloud = {};
+        std::array<uint32_t, NUM_TERMS> bitCloud = {};
 
         // bind bitcloud array
         glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(bitCloud.data()), bitCloud.data());
@@ -82,28 +88,29 @@ int main()
     // generate terrain
     TerrainShader.use();
 
+    // dispatch compute shader threads, based on thread pool size of 64.
+    glDispatchCompute(CHUNK_SIZE/4, CHUNK_SIZE/4, CHUNK_SIZE/4);
+
     // make sure writes are visible to everything else
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-    // dispatch compute shader threads, based on thread pool size of 64.
-    uint32_t chunkSize = 32;
-
-    glDispatchCompute(chunkSize/4, chunkSize/4, chunkSize/4);
 
     // initialize prefix constructor
     PrefixConstructor Prefixer;
     // generate and bind prefix array from bitcloud
     {
-        std::array<uint32_t, 1024> bitCloud; // should map this later
-        glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(bitCloud.data()), bitCloud.data());
+        std::array<uint32_t, NUM_TERMS> bitCloud; // should map this later
+        glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(GLuint)*NUM_TERMS, bitCloud.data());
 
-        std::array<uint32_t, 1024> Prefixes = Prefixer.GeneratePrefixes(bitCloud); // prefixes made from
-        glBufferSubData(GL_SHADER_STORAGE_BUFFER, sizeof(GLuint) * 1024, sizeof(GLuint)*1024, Prefixes.data());
+        std::array<uint32_t, NUM_TERMS> Prefixes = Prefixer.GeneratePrefixes(bitCloud); // prefixes made from class
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, sizeof(GLuint) * NUM_TERMS, sizeof(GLuint)*NUM_TERMS, Prefixes.data());
     }
 
     // generate block data
     DataShader.use();
-    glDispatchCompute(chunkSize/4, chunkSize/4, chunkSize/4);
+    glDispatchCompute(CHUNK_SIZE/4, CHUNK_SIZE/4, CHUNK_SIZE/4);
+
+    // make sure writes are visible to everything else
+    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
     // render loop
     float deltaTime = 0.0f;

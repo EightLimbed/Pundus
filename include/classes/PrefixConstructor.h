@@ -27,14 +27,13 @@ public:
         uint32_t RTotal = 0; // running total
         for (int i = 0; i < NUM_TERMS; ++i) {
             uint32_t Count = __builtin_popcount(bitCloud[i]);
-            RTotal += Count;
             //std::cout << "\nTerm Count: " << Count << " Running Total: " << RTotal;
             Prefixes[i] = RTotal;
+            RTotal += Count;
         
         }
         return Prefixes;
     }
-
 
 };
 #endif

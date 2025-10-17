@@ -3,7 +3,7 @@
 layout(std430, binding = 0) buffer VoxelData {
     uint bitCloud[1024]; // x
     uint prefixArray[1024];
-    float blockData[];
+    uint blockData[];
 };
 
 out vec4 FragColor;
@@ -23,17 +23,17 @@ uniform float iTime;
 
 // constants
 
-// only call if voxel is solid, gets final index from prefix uint 
+
 uint getDataIndex(uint m) { 
     uint wordIndex = m >> 5u; // divide by 32 
 
     uint bitIndex = m & 31u; // bit within term
 
-    uint term = bitCloud[wordIndex]; // number of solids before this term
+    uint term = bitCloud[wordIndex]; // term number
 
     uint baseCount = prefixArray[wordIndex]; // solids before this voxel in term
     uint localMask = (bitIndex == 0u) ? 0u : (term & ((1u << bitIndex) - 1u)); 
-    uint localOffset = bitCount(localMask);
+    uint localOffset = bitCount(localMask); // number of solids before this term
 
     return baseCount + localOffset;
 }
@@ -92,13 +92,14 @@ void main() {
     vec3 tMax = bound * dr; // how far to first boundary per axis
     vec3 tDelta = dr;    
     float t = 0.0;
+    float LOD = 1.0;
 
     for (int i = 0; i < 128; i++) {
         uint m = morton3D(vp);
 
         if (checkVoxel(m) && (32 > vp.x) && (32 > vp.y) && (32 > vp.z)) {
-            float c = blockData[getDataIndex(m)];
-            FragColor = vec4(vec3(c+0.5)-length(vp-floor(ro))/100.0,1.0);
+            float c = float(blockData[getDataIndex(m)])/32.0;
+            FragColor = vec4(vec3(c),1.0);
             return;
         }
 

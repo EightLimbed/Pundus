@@ -5,7 +5,7 @@ layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in; // 64 local thr
 layout(std430, binding = 0) buffer VoxelData {
     uint bitCloud[1024];
     uint prefixArray[1024];
-    float blockData[];
+    uint blockData[];
 };
 
 // morton encoding/decoding
@@ -33,11 +33,11 @@ uint getDataIndex(uint m) {
 
     uint bitIndex = m & 31u; // bit within term
 
-    uint term = bitCloud[wordIndex]; // number of solids before this term
+    uint term = bitCloud[wordIndex]; // term number
 
     uint baseCount = prefixArray[wordIndex]; // solids before this voxel in term
     uint localMask = (bitIndex == 0u) ? 0u : (term & ((1u << bitIndex) - 1u)); 
-    uint localOffset = bitCount(localMask);
+    uint localOffset = bitCount(localMask); // number of solids before this term
 
     return baseCount + localOffset;
 }
@@ -48,6 +48,6 @@ void main(){
     uint m = morton3D(local);
 
     if(checkVoxel(m)){
-        blockData[getDataIndex(m)] = float(length(id))/32.0;
+        blockData[getDataIndex(m)] = id.y;
     }
 }
