@@ -25,17 +25,24 @@ uniform float iTime;
 
 
 uint getDataIndex(uint m) { 
-    uint wordIndex = m >> 5u; // divide by 32 
+    uint i = m >> 5u; // divide by 32 
 
-    uint bitIndex = m & 31u; // bit within term
+    uint bitI = m & 31u; // bit within term
 
-    uint term = bitCloud[wordIndex]; // term number
+    uint term = bitCloud[i]; // term number
 
-    uint baseCount = prefixArray[wordIndex]; // solids before this voxel in term
-    uint localMask = (bitIndex == 0u) ? 0u : (term & ((1u << bitIndex) - 1u)); 
-    uint localOffset = bitCount(localMask); // number of solids before this term
+    uint count = prefixArray[i]; // solids before this voxel in term
+    uint mask = (bitI == 0u) ? 0u : (term & ((1u << bitI) - 1u)); 
+    uint offset = bitCount(mask); // number of solids before this term
 
-    return baseCount + localOffset;
+    return count + offset;
+}
+
+uint getData(uint m) {
+    uint i = getDataIndex(m);
+    uint uintIndex = i >> 2u;
+    uint byteOffset = (i & 3u) * 8u;
+    return (blockData[uintIndex] >> byteOffset) & 0xFFu;
 }
 
 // morton encoding/decoding
@@ -54,8 +61,8 @@ uint morton3D(uvec3 p) {
 
 // checks if voxel is solid
 bool checkVoxel(uint m) {
-    uint idx = m >> 5u; // which 32-bit word (divide by 32)
-    uint bit = m & 31u; // which bit in that word (mod 32)
+    uint idx = m >> 5u; // which 32-bit term (divide by 32)
+    uint bit = m & 31u; // which bit in that term (mod 32 or whatever)
     return ((bitCloud[idx] >> bit) & 1u) != 0u;
 }
 
@@ -92,14 +99,13 @@ void main() {
     vec3 tMax = bound * dr; // how far to first boundary per axis
     vec3 tDelta = dr;    
     float t = 0.0;
-    float LOD = 1.0;
 
     for (int i = 0; i < 128; i++) {
         uint m = morton3D(vp);
 
-        if (checkVoxel(m) && (32 > vp.x) && (32 > vp.y) && (32 > vp.z)) {
-            float c = float(blockData[getDataIndex(m)])/32.0;
-            FragColor = vec4(vec3(c),1.0);
+        if (checkVoxel(m) && (32 > vp.x) && (32 > vp.y) && (32 > vp.z)) { // temporary bounds, will increase
+            float c = float(getData(m))/32.0;
+            FragColor = vec4(vec3(c)-length(ro-vp)*0.01,1.0);
             return;
         }
 
