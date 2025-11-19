@@ -1,12 +1,12 @@
 #version 430 core
+#extension GL_ARB_gpu_shader_int64 : enable
 
 layout(std430, binding = 0) buffer VoxelData {
-    uint bitCloud[1024]; // x
-    uint prefixArray[1024];
     uint blockData[];
 };
 
 out vec4 FragColor;
+
 
 // player position
 uniform float pPosX;
@@ -23,26 +23,11 @@ uniform float iTime;
 
 // constants
 
-
-uint getDataIndex(uint m) { 
-    uint i = m >> 5u; // divide by 32 
-
-    uint bitI = m & 31u; // bit within term
-
-    uint term = bitCloud[i]; // term number
-
-    uint count = prefixArray[i]; // solids before this voxel in term
-    uint mask = (bitI == 0u) ? 0u : (term & ((1u << bitI) - 1u)); 
-    uint offset = bitCount(mask); // number of solids before this term
-
-    return count + offset;
-}
-
 uint getData(uint m) {
-    uint i = getDataIndex(m);
-    uint uintIndex = i >> 2u;
-    uint byteOffset = (i & 3u) * 8u;
-    return (blockData[uintIndex] >> byteOffset) & 0xFFu;
+    uint i = m >> 2u; // divide by 4
+    uint byteShift = (m & 3u) * 8u; // which byte in that uint
+    uint term = blockData[i];
+    return (term >> byteShift) & 0xFFu;
 }
 
 // morton encoding/decoding
@@ -57,13 +42,6 @@ uint part1by2(uint x) {
 
 uint morton3D(uvec3 p) {
     return part1by2(p.x) | (part1by2(p.y) << 1) | (part1by2(p.z) << 2);
-}
-
-// checks if voxel is solid
-bool checkVoxel(uint m) {
-    uint idx = m >> 5u; // which 32-bit term (divide by 32)
-    uint bit = m & 31u; // which bit in that term (mod 32 or whatever)
-    return ((bitCloud[idx] >> bit) & 1u) != 0u;
 }
 
 // camera shizzle
@@ -100,12 +78,13 @@ void main() {
     vec3 tDelta = dr;    
     float t = 0.0;
 
-    for (int i = 0; i < 128; i++) {
+    for (int i = 0; i < 1024; i++) {
         uint m = morton3D(vp);
+        uint data = getData(m);
 
-        if (checkVoxel(m) && (32 > vp.x) && (32 > vp.y) && (32 > vp.z)) { // temporary bounds, will increase
-            float c = float(getData(m))/32.0;
-            FragColor = vec4(vec3(c)-length(ro-vp)*0.01,1.0);
+        if (data > 0) { // temporary bounds, will increase
+            float c = data*0.01;
+            FragColor = vec4(vec3(c)-length(ro-vp)*0.001,1.0);
             return;
         }
 

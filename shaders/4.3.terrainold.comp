@@ -82,7 +82,7 @@ float noise2D(vec2 v) {
 
 // morton encoding/decoding
 uint part1by2(uint x) {
-    x &= 0x000003FFu;
+    x &= 0x000003FFu; // 10 bits
     x = (x | (x << 16)) & 0x030000FFu;
     x = (x | (x << 8))  & 0x0300F00Fu;
     x = (x | (x << 4))  & 0x030C30C3u;
@@ -90,29 +90,41 @@ uint part1by2(uint x) {
     return x;
 }
 
-uint morton3D(uvec3 p) {
-    return part1by2(p.x) | (part1by2(p.y) << 1) | (part1by2(p.z) << 2);
+uint morton3D(uvec3 id) {
+    return part1by2(id.x) | (part1by2(id.y) << 1) | (part1by2(id.z) << 2);
 }
 
+uint compact1by2(uint x) {
+    x &= 0x09249249u;
+    x = (x ^ (x >> 2)) & 0x030C30C3u;
+    x = (x ^ (x >> 4)) & 0x0300F00Fu;
+    x = (x ^ (x >> 8)) & 0x030000FFu;
+    x = (x ^ (x >> 16)) & 0x000003FFu;
+    return x;
+}
 
-void setData(uint m, uint value) {
-    uint i = m >> 2u;
-    uint byteShift = (m & 3u) * 8u;
+uvec3 mortonDecode3D(uint m) {
+    uint x = compact1by2(m);
+    uint y = compact1by2(m >> 1);
+    uint z = compact1by2(m >> 2);
+    return uvec3(x, y, z);
+}
 
-    //uint clearMask = ~(0xFFu << byteShift);
-    uint insert = (value & 0xFFu) << byteShift;
-
-    //atomicAnd(blockData[i], clearMask);
-    atomicOr(blockData[i], insert);
+void setVoxel(uvec3 p, bool filled) {
+    uint m = morton3D(p);
+    uint idx = m >> 5u;
+    uint bit = m & 31u;
+    if(filled) {
+        atomicOr(bitCloud[idx], 1u << bit);
+    } else {
+        atomicAnd(bitCloud[idx], ~(1u << bit));
+    }
 }
 
 void main() {
-    uvec3 id = gl_GlobalInvocationID;
-    //uvec3 local = id & 8u;
-    uint m = morton3D(id);
-    float height = (noise2D(vec2(id.x,id.z)/128.0) + 1.0) * 64.0;
-    uint data = (float(id.y) < height) ? id.y : 0;
-
-    setData(m, data); // sets voxel to a value proportional to height if within terrain
-    
+  uvec3 id = gl_GlobalInvocationID;
+  //sets voxel based on wether or not it is filled
+  float height = (noise2D(vec2(id.x,id.z)/32.0) + 1.0) * 0.5 * 32.0;
+  bool filled = float(id.y) < height;
+  setVoxel(id, filled);
 }
