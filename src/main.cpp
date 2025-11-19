@@ -7,13 +7,16 @@
 
 #include <iostream>
 #include <array>
+#include <string>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window);
 
+Shader* screenPtr;
+
 // settings
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
+unsigned int SCR_WIDTH = 800;
+unsigned int SCR_HEIGHT = 600;
 
 const uint32_t MAP_SIZE = 1024;
 const uint32_t NUM_VOXELS = MAP_SIZE * MAP_SIZE * MAP_SIZE;
@@ -59,6 +62,7 @@ int main()
     // build and compile shader program
     Shader ScreenShader("shaders/4.3.screenquad.vert","shaders/4.3.raymarcher.frag");
     Shader TerrainShader("shaders/4.3.terrain.comp");
+    screenPtr = &ScreenShader;
 
     // vaos need to be bound because of biolerplating shizzle (even if not used)
     GLuint vao;
@@ -141,5 +145,10 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     // make sure the viewport matches the new window dimensions; note that width and 
     // height will be significantly larger than specified on retina displays.
+    Shader ScreenShader = *screenPtr;
+    std::cout<<"resized to: "<<width<<", "<<height<<std::endl;
+    // resize window when necessary
+    ScreenShader.setInt("screenWidth", width);
+    ScreenShader.setInt("screenHeight", height);
     glViewport(0, 0, width, height);
 }

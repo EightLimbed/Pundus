@@ -111,7 +111,12 @@ void main() {
     //uvec3 local = id & 8u;
     uint m = morton3D(id);
     float height = (noise2D(vec2(id.x,id.z)/128.0) + 1.0) * 64.0;
-    uint data = (float(id.y) < height) ? id.y : 0;
+    uint data = 0;
+    if (float(id.y) < height) {
+        if (float(id.y) >= height-1) data = 1;
+        else if (float(id.y) >= height-6) data = 2;
+        else data = 3;
+    }
 
     setData(m, data); // sets voxel to a value proportional to height if within terrain
     

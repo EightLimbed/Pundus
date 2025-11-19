@@ -1,5 +1,4 @@
 #version 430 core
-#extension GL_ARB_gpu_shader_int64 : enable
 
 layout(std430, binding = 0) buffer VoxelData {
     uint blockData[];
@@ -18,10 +17,15 @@ uniform float pDirX;
 uniform float pDirY;
 uniform float pDirZ;
 
+// screen
+uniform int screenWidth = 800;
+uniform int screenHeight = 600;
+
 // time
 uniform float iTime;
 
 // constants
+vec3 colors[3] = {vec3(0.1,0.7,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5)};
 
 uint getData(uint m) {
     uint i = m >> 2u; // divide by 4
@@ -59,7 +63,7 @@ void main() {
     FragColor = vec4(0.0);
     vec3 ro = vec3(pPosX,pPosY,pPosZ);
     vec3 lookAt = vec3(pDirX, pDirY, pDirZ);
-    vec3 rd = getRayDir(gl_FragCoord.xy, vec2(800,600), lookAt, 1.0);
+    vec3 rd = getRayDir(gl_FragCoord.xy, vec2(screenWidth,screenHeight), lookAt, 1.0);
     
     // voxel space setup
     vec3 stride = sign(rd);
@@ -78,13 +82,13 @@ void main() {
     vec3 tDelta = dr;    
     float t = 0.0;
 
-    for (int i = 0; i < 1024; i++) {
+    for (int i = 0; i < 512; i++) {
         uint m = morton3D(vp);
         uint data = getData(m);
 
         if (data > 0) { // temporary bounds, will increase
-            float c = data*0.01;
-            FragColor = vec4(vec3(c)-length(ro-vp)*0.001,1.0);
+            vec3 c = colors[data-1];
+            FragColor = vec4(c-length(ro-vp)*0.001,1.0);
             return;
         }
 
