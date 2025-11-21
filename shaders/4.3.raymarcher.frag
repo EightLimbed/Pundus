@@ -1,6 +1,7 @@
 #version 430 core
 
-layout(std430, binding = 0) buffer VoxelData {
+layout(std430, binding = 0) buffer BlockData {
+    uint chunkMask[65536];
     uint blockData[];
 };
 

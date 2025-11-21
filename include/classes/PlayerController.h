@@ -23,7 +23,7 @@ public:
     // up direction
     float upX = 0.0f, upY = 1.0f, upZ = 0.0f;
     // move speed
-    float speed = 10.0;
+    float speed = 100.0;
     // properties
     float posX;
     float posY;
@@ -33,9 +33,9 @@ public:
     float dirZ;
 
     PlayerController(GLFWwindow *window) {
-        posX = 35.0;
-        posY = 35.0;
-        posZ = 35.0;
+        posX = 0.0;
+        posY = 128.0;
+        posZ = 0.0;
     }
 
     void HandleInputs(GLFWwindow *window, float deltaTime) {
