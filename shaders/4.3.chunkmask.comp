@@ -3,7 +3,7 @@
 layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in; // 64 local threads is apparently sweet spot
 
 layout(std430, binding = 0) buffer BlockData {
-    uint chunkMask[65536];
+    uint chunkMask[524288];
     uint blockData[];
 };
 
@@ -23,4 +23,23 @@ uint morton3D(uvec3 p) {
 
 void main() {
     uvec3 id = gl_GlobalInvocationID;
+    // morton
+    uint m = morton3D(id);
+    // indexing for bitpacking
+    uint idx = m >> 5u; 
+    uint bit = m & 31u;
+    // every two uints checked as group to see if empty.
+    uint nm = m*4u;
+    bool empty = true;
+    for (uint i = 0u; i < 4u; i++) { // for loop for possibility of bigger chunks
+        if (blockData[nm+i] != 0u) {
+            empty = false;
+            break;
+        }
+    }
+    if (empty) {
+        atomicOr(chunkMask[idx], 1u << bit);
+    } else {
+        atomicAnd(chunkMask[idx], ~(1u << bit));
+    }
 }

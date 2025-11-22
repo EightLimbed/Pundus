@@ -33,9 +33,9 @@ public:
     float dirZ;
 
     PlayerController(GLFWwindow *window) {
-        posX = 0.0;
-        posY = 128.0;
-        posZ = 0.0;
+        posX = 512.0;
+        posY = 512.0;
+        posZ = 512.0;
     }
 
     void HandleInputs(GLFWwindow *window, float deltaTime) {

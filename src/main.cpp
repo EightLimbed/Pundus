@@ -18,10 +18,11 @@ unsigned int SCR_WIDTH = 800;
 unsigned int SCR_HEIGHT = 600;
 
 const uint32_t AXIS_SIZE = 1024;
+const uint32_t CHUNK_SIZE = 4;
 const uint32_t NUM_VOXELS = AXIS_SIZE * AXIS_SIZE * AXIS_SIZE;
 const uint32_t NUM_VUINTS = (NUM_VOXELS + 3) / 4; // ceil division, amount of uints total.
 // because morton is recursive, chunks will always fit within cube.
-const uint32_t AXIS_CHUNKS = (AXIS_SIZE + 3) / 8; // every two uints forms a 2^3 chunk that can be bitmasked.
+const uint32_t AXIS_CHUNKS = (AXIS_SIZE + 3) / CHUNK_SIZE; // every 2*4 uints forms a 4^3 chunk that can be bitmasked.
 const uint32_t NUM_CUINTS = AXIS_CHUNKS*AXIS_CHUNKS*AXIS_CHUNKS/32;
 const size_t SSBO0_SIZE = sizeof(GLuint) * NUM_VUINTS + sizeof(GLuint) * AXIS_CHUNKS*AXIS_CHUNKS*AXIS_CHUNKS;
 
@@ -35,7 +36,7 @@ int main() {
 #ifdef __APPLE__
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
-    std::cout<<NUM_CUINTS<<std::endl; // prints amount of uints for chunk buffer.
+    std::cout<<NUM_CUINTS<<" cuints needed."<<std::endl; // prints amount of uints for chunk buffer.
     // glfw window creation
     GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Pundus", NULL, NULL);
     if (window == NULL)

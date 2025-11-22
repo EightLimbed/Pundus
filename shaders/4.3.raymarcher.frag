@@ -1,12 +1,11 @@
 #version 430 core
 
 layout(std430, binding = 0) buffer BlockData {
-    uint chunkMask[65536];
+    uint chunkMask[524288];
     uint blockData[];
 };
 
 out vec4 FragColor;
-
 
 // player position
 uniform float pPosX;
@@ -26,13 +25,24 @@ uniform int screenHeight = 600;
 uniform float iTime;
 
 // constants
-vec3 colors[3] = {vec3(0.1,0.7,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5)};
+const vec3 colors[3] = {vec3(0.1,0.7,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5)};
+const int chunkSize = 4;
+const float fchunkSize = 4.0;
+const float renderDist = 2048;
 
+// block data getter
 uint getData(uint m) {
     uint i = m >> 2u; // divide by 4
     uint byteShift = (m & 3u) * 8u; // which byte in that uint
     uint term = blockData[i];
     return (term >> byteShift) & 0xFFu;
+}
+
+// chunk mask getter
+bool checkChunk(uint m) {
+    uint idx = m >> 5u; // which 32-bit term (divide by 32)
+    uint bit = m & 31u; // which bit in that term (mod 32 or whatever)
+    return ((chunkMask[idx] >> bit) & 1u) != 0u;
 }
 
 // morton encoding/decoding
@@ -58,49 +68,85 @@ vec3 getRayDir(vec2 fragCoord, vec2 res, vec3 lookAt, float zoom) {
     return normalize(f + zoom * (uv.x*r + uv.y*u));
 }
 
-// main raymarching loop
+// main raymarching loop.
 void main() {
-    // camera setup
+    // camera setup.
     FragColor = vec4(0.0);
     vec3 ro = vec3(pPosX,pPosY,pPosZ);
     vec3 lookAt = vec3(pDirX, pDirY, pDirZ);
     vec3 rd = getRayDir(gl_FragCoord.xy, vec2(screenWidth,screenHeight), lookAt, 1.0);
     
-    // voxel space setup
-    vec3 stride = sign(rd);
-    ivec3 istride = ivec3(stride);
-    ivec3 vp = ivec3(floor(ro)); //starting position
-    // inverse of rd
+    // voxel space setup.
+    ivec3 stride = ivec3(sign(rd));
+    ivec3 vp = ivec3(floor(ro)); //starting position.
+    // inverse of rd, made to be non 0.
     vec3 dr = 1.0 / max(abs(rd), vec3(1e-6));
 
-    // distance to first voxel boundary
+    // distance to first voxel boundary.
     vec3 bound;
     bound.x = (rd.x > 0.0) ? (float(vp.x) + 1.0 - ro.x) : (ro.x - float(vp.x));
     bound.y = (rd.y > 0.0) ? (float(vp.y) + 1.0 - ro.y) : (ro.y - float(vp.y));
     bound.z = (rd.z > 0.0) ? (float(vp.z) + 1.0 - ro.z) : (ro.z - float(vp.z));
 
-    vec3 tMax = bound * dr; // how far to first boundary per axis
-    vec3 tDelta = dr;    
-    float t = 0.0;
+    ivec3 cp = ivec3(floor(vec3(vp) / fchunkSize));
 
-    for (int i = 0; i < 512; i++) {
+    // distance to first chunk boundary.
+    vec3 cBound;
+    cBound.x = (rd.x > 0.0) ? (float(cp.x)*fchunkSize + fchunkSize - ro.x) : (ro.x - float(cp.x)*fchunkSize);
+    cBound.y = (rd.y > 0.0) ? (float(cp.y)*fchunkSize + fchunkSize - ro.y) : (ro.y - float(cp.y)*fchunkSize);
+    cBound.z = (rd.z > 0.0) ? (float(cp.z)*fchunkSize + fchunkSize - ro.z) : (ro.z - float(cp.z)*fchunkSize);
+
+    vec3 tMax = bound * dr; // how far to first voxel boundary per axis.
+    vec3 cTMax = cBound * dr; // how far to first chunk boundary per axis.
+    vec3 tDelta = dr; // distance for voxels.
+    vec3 cTDelta = dr*fchunkSize; // distance for chunks.
+
+    for (int i = 0; i < renderDist; i++) {
+
+        //vec3 d = abs(vec3(vp)-ro);
+        //if (d.x > renderDist || d.y > renderDist || d.z > renderDist) return; // early out with distance.
+
+        
+        // chunk-level DDA, steps chunk distance when chunk is empty.
+        if (checkChunk(morton3D(cp))) {
+            if (cTMax.x < cTMax.y && cTMax.x < cTMax.z) {
+                cTMax.x += cTDelta.x;
+                tMax.x += tDelta.x*fchunkSize;
+                cp.x += stride.x;
+                vp.x += stride.x*chunkSize;
+            } else if (cTMax.y < cTMax.z) {
+                cTMax.y += cTDelta.y;
+                tMax.y += tDelta.y*fchunkSize;
+                cp.y += stride.y;
+                vp.y += stride.y*chunkSize;
+            } else {
+                cTMax.z += cTDelta.z;
+                tMax.z += tDelta.z*fchunkSize;
+                cp.z += stride.z;
+                vp.z += stride.z*chunkSize;
+            }
+            continue;
+        }
+
+
         uint m = morton3D(vp);
         uint data = getData(m);
 
-        if (data > 0) { // temporary bounds, will increase
-            vec3 c = colors[data-1];
-            FragColor = vec4(c-length(ro-vp)*0.001,1.0);
+        if (data > 0) {
+            vec3 c = colors[data-1]; // -1 to go to 0 in array when 0 is air.
+            FragColor = vec4(c,1.0);
+            //FragColor = checkChunk(morton3D(cp)) ? vec4(0.0, 1.0, 0.0, 1.0) : vec4(0.2, 0.2, 0.2, 1.0);
             return;
         }
 
 		if (tMax.x < tMax.y && tMax.x < tMax.z) { // X is closest
-			vp.x += istride.x;
+			vp.x += stride.x;
             tMax.x += tDelta.x;
 		} else if (tMax.y < tMax.z) {             // Y is closest
-			vp.y += istride.y;
+			vp.y += stride.y;
             tMax.y += tDelta.y;
 		} else {                                  // Z is closest
-			vp.z += istride.z;
+			vp.z += stride.z;
             tMax.z += tDelta.z;
 		}
 	}
