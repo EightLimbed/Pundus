@@ -23,8 +23,11 @@ const uint32_t NUM_VOXELS = AXIS_SIZE * AXIS_SIZE * AXIS_SIZE;
 const uint32_t NUM_VUINTS = (NUM_VOXELS + 3) / 4; // ceil division, amount of uints total.
 // because morton is recursive, chunks will always fit within cube.
 const uint32_t AXIS_CHUNKS = (AXIS_SIZE + 3) / CHUNK_SIZE; // every 2*4 uints forms a 4^3 chunk that can be bitmasked.
-const uint32_t NUM_CUINTS = AXIS_CHUNKS*AXIS_CHUNKS*AXIS_CHUNKS/32;
-const size_t SSBO0_SIZE = sizeof(GLuint) * NUM_VUINTS + sizeof(GLuint) * AXIS_CHUNKS*AXIS_CHUNKS*AXIS_CHUNKS;
+
+const uint32_t NUM_CUINTS = AXIS_CHUNKS*AXIS_CHUNKS*AXIS_CHUNKS/32; 
+
+// sizes
+const size_t SSBO0_SIZE = sizeof(GLuint) * (NUM_VUINTS + NUM_CUINTS);
 
 int main() {
     // glfw: initialize and configure

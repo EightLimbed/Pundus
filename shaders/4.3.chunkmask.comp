@@ -29,9 +29,9 @@ void main() {
     uint idx = m >> 5u; 
     uint bit = m & 31u;
     // every two uints checked as group to see if empty.
-    uint nm = m*4u;
+    uint nm = m*16u;
     bool empty = true;
-    for (uint i = 0u; i < 4u; i++) { // for loop for possibility of bigger chunks
+    for (uint i = 0u; i < 16u; i++) {
         if (blockData[nm+i] != 0u) {
             empty = false;
             break;
