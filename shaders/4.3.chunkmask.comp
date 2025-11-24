@@ -3,7 +3,7 @@
 layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in; // 64 local threads is apparently sweet spot
 
 layout(std430, binding = 0) buffer BlockData {
-    uint chunkMask[524288];
+    uint chunkMask[65536];
     uint blockData[];
 };
 
@@ -29,9 +29,9 @@ void main() {
     uint idx = m >> 5u; 
     uint bit = m & 31u;
     // every two uints checked as group to see if empty.
-    uint nm = m*16u;
+    uint nm = m*128u;
     bool empty = true;
-    for (uint i = 0u; i < 16u; i++) {
+    for (uint i = 0u; i < 128u; i++) {
         if (blockData[nm+i] != 0u) {
             empty = false;
             break;

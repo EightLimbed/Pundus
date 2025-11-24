@@ -18,7 +18,7 @@ unsigned int SCR_WIDTH = 800;
 unsigned int SCR_HEIGHT = 600;
 
 const uint32_t AXIS_SIZE = 1024;
-const uint32_t CHUNK_SIZE = 4;
+const uint32_t CHUNK_SIZE = 8;
 const uint32_t NUM_VOXELS = AXIS_SIZE * AXIS_SIZE * AXIS_SIZE;
 const uint32_t NUM_VUINTS = (NUM_VOXELS + 3) / 4; // ceil division, amount of uints total.
 // because morton is recursive, chunks will always fit within cube.
