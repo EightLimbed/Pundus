@@ -136,7 +136,7 @@ int main() {
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
-    std::cout << "\nFPS: " << 1.0/deltaTime; // print fps at time of closing. Good for benchmarking as prints don't slow things down.
+    std::cout << "FPS: " << 1.0/deltaTime << std::endl; // print fps at time of closing. Good for benchmarking as prints don't slow things down.
     // glfw: terminate, clearing all previously allocated GLFW resources.
     glfwTerminate();
     return 0;

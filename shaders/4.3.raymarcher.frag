@@ -81,10 +81,10 @@ void main() {
     
     // voxel space setup.
     ivec3 stride = ivec3(sign(rd));
-    ivec3 vp = ivec3(floor(ro)); //starting position.
     // inverse of rd, made to be non 0.
     vec3 dr = 1.0 / max(abs(rd), vec3(1e-6));
 
+    ivec3 vp = ivec3(floor(ro)); //starting position.
     // distance to first voxel boundary.
     vec3 bound;
     bound.x = (rd.x > 0.0) ? (float(vp.x) + 1.0 - ro.x) : (ro.x - float(vp.x));
@@ -93,14 +93,7 @@ void main() {
 
     ivec3 cp = ivec3(floor(vec3(vp) / fChunkSize));
 
-    // distance to first chunk boundary.
-    vec3 cBound;
-    cBound.x = (rd.x > 0.0) ? (float(cp.x)*fChunkSize + fChunkSize - ro.x) : (ro.x - float(cp.x)*fChunkSize);
-    cBound.y = (rd.y > 0.0) ? (float(cp.y)*fChunkSize + fChunkSize - ro.y) : (ro.y - float(cp.y)*fChunkSize);
-    cBound.z = (rd.z > 0.0) ? (float(cp.z)*fChunkSize + fChunkSize - ro.z) : (ro.z - float(cp.z)*fChunkSize);
-
     vec3 tMax = bound * dr; // how far to first voxel boundary per axis.
-    vec3 cTMax = cBound * dr; // how far to first chunk boundary per axis.
 
     vec3 vd = dr;
     vec3 cd = dr * fChunkSize;
@@ -110,6 +103,22 @@ void main() {
         float d = length(vp-ro);
         if (d*d>renderDist*renderDist) return; // early out with distance.
 
+        // chunk-level DDA removed temporarily, steps chunk distance when chunk is empty.
+        cp = ivec3(floor(vec3(vp) / fChunkSize)); 
+        uint cm = morton3D(cp)%2097152; // make it not read things from data buffer
+        if (checkChunk(cm)) {
+            if (tMax.x <= tMax.y && tMax.x <= tMax.z) { // X is closest
+                vp.x += stride.x;
+                tMax.x += vd.x;
+            } else if (tMax.y <= tMax.z) {             // Y is closest
+                vp.y += stride.y;
+                tMax.y += vd.y;
+            } else {                                  // Z is closest
+                vp.z += stride.z;
+                tMax.z += vd.z;
+		    }
+        }
+
         uint m = morton3D(vp);
         uint data = getData(m);
         if (data > 0u) {
@@ -117,27 +126,6 @@ void main() {
             FragColor = vec4(c,1.0);
             FragColor.xyz += (data == 4 || data == 5) ? vec3(0.0) : length(vp-ro)*vec3(0.0001,0.00006,0.00004); // eventually matching sky color (wrong, but looks ok)
             return;
-        }
-
-        // chunk-level DDA removed temporarily, steps chunk distance when chunk is empty.
-        cp = ivec3(floor(vec3(vp) / fChunkSize + stride)); 
-        uint cm = morton3D(cp)%2097152; // make it not read things from data buffer
-        if (checkChunk(cm)) {
-            // choose the axis whose chunk boundary is reached first
-            if (cTMax.x <= cTMax.y && cTMax.x <= cTMax.z) { // X is closest
-                vp.x += stride.x*chunkSize; // update position accordingly
-                cTMax.x += cd.x;
-                tMax.x += cd.x; // update as if 8 blocks were jumped at once
-            } else if (cTMax.y <= cTMax.z) {             // Y is closest
-                vp.y += stride.y*chunkSize;
-                cTMax.y += cd.y;
-                tMax.y += cd.y;
-            } else {                                  // Z is closest
-                vp.z += stride.z*chunkSize;
-                cTMax.z += cd.z;
-                tMax.z += cd.z;
-            }
-            continue; // continue the main loop after skipping
         }
 
         // voxel-level DDA, steps chunk distance when chunk is empty.

@@ -39,6 +39,7 @@ void main() {
     }
     if (empty) {
         atomicOr(chunkMask[idx], 1u << bit);
+        //atomicAnd(chunkMask[idx], ~(1u << bit));
     } else {
         atomicAnd(chunkMask[idx], ~(1u << bit));
     }
