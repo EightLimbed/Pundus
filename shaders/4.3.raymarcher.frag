@@ -1,7 +1,6 @@
 #version 430 core
 
 layout(std430, binding = 0) buffer BlockData {
-    uint chunkMask[65536];
     uint blockData[];
 };
 
@@ -27,22 +26,14 @@ uniform float iTime;
 // constants
 const vec3 colors[5] = {vec3(0.1,0.7,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(0.4,0.6,1.0), vec3(1.0)};
 const int chunkSize = 8;
-const float fChunkSize = float(chunkSize);
-const float maxChunkDist = sqrt(fChunkSize*fChunkSize*2.0);
-const float renderDist = 4096;
+const float fChunkSize = 8.0;
+const float renderDist = 512;
 
 // block data getter
 uint getData(uint m) {
     uint idx = m >> 2u; // divide by 4
     uint bit = (m & 3u) * 8u; // which byte in that uint
     return (blockData[idx] >> bit) & 0xFFu;
-}
-
-// chunk mask getter
-bool checkChunk(uint m) {
-    uint idx = m >> 5u; // which 32-bit term (divide by 32)
-    uint bit = m & 31u; // which bit in that term (mod 32 or whatever)
-    return ((chunkMask[idx] >> bit) & 1u) != 0u;
 }
 
 // morton encoding/decoding
@@ -96,15 +87,15 @@ void main() {
 
     for (int i = 0; i < renderDist; i++) {
         
-        float d = length(vp-ro);
-        if (d*d>renderDist*renderDist) return; // early out with distance.
+        //float d = length(vp-ro);
+        //if (d*d>renderDist*renderDist) return; // early out with distance.
 
         uint m = morton3D(vp);
         uint data = getData(m);
         if (data > 0u) {
             vec3 c = colors[data-1]; // -1 to go to 0 in array when 0 is air.
-            FragColor = vec4(c,1.0);
-            FragColor.xyz += (data == 4 || data == 5) ? vec3(0.0) : length(vp-ro)*vec3(0.0001,0.00006,0.00004); // eventually matching sky color (wrong, but looks ok)
+            float atten = float(i)/float(renderDist);
+            (data == 4 || data == 5) ? FragColor = vec4(c,1.0) : FragColor = vec4((1.0-atten) * c + atten * colors[3], 1.0);
             return;
         }
 
