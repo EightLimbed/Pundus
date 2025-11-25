@@ -27,7 +27,8 @@ uniform float iTime;
 // constants
 const vec3 colors[5] = {vec3(0.1,0.7,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(0.4,0.6,1.0), vec3(1.0)};
 const int chunkSize = 8;
-const float fChunkSize = 8.0;
+const float fChunkSize = float(chunkSize);
+const float maxChunkDist = sqrt(fChunkSize*fChunkSize*2.0);
 const float renderDist = 4096;
 
 // block data getter
@@ -91,33 +92,12 @@ void main() {
     bound.y = (rd.y > 0.0) ? (float(vp.y) + 1.0 - ro.y) : (ro.y - float(vp.y));
     bound.z = (rd.z > 0.0) ? (float(vp.z) + 1.0 - ro.z) : (ro.z - float(vp.z));
 
-    ivec3 cp = ivec3(floor(vec3(vp) / fChunkSize));
-
     vec3 tMax = bound * dr; // how far to first voxel boundary per axis.
-
-    vec3 vd = dr;
-    vec3 cd = dr * fChunkSize;
 
     for (int i = 0; i < renderDist; i++) {
         
         float d = length(vp-ro);
         if (d*d>renderDist*renderDist) return; // early out with distance.
-
-        // chunk-level DDA removed temporarily, steps chunk distance when chunk is empty.
-        cp = ivec3(floor(vec3(vp) / fChunkSize)); 
-        uint cm = morton3D(cp)%2097152; // make it not read things from data buffer
-        if (checkChunk(cm)) {
-            if (tMax.x <= tMax.y && tMax.x <= tMax.z) { // X is closest
-                vp.x += stride.x;
-                tMax.x += vd.x;
-            } else if (tMax.y <= tMax.z) {             // Y is closest
-                vp.y += stride.y;
-                tMax.y += vd.y;
-            } else {                                  // Z is closest
-                vp.z += stride.z;
-                tMax.z += vd.z;
-		    }
-        }
 
         uint m = morton3D(vp);
         uint data = getData(m);
@@ -132,13 +112,13 @@ void main() {
 
 		if (tMax.x <= tMax.y && tMax.x <= tMax.z) { // X is closest
 			vp.x += stride.x;
-            tMax.x += vd.x;
+            tMax.x += dr.x;
 		} else if (tMax.y <= tMax.z) {             // Y is closest
 			vp.y += stride.y;
-            tMax.y += vd.y;
+            tMax.y += dr.y;
 		} else {                                  // Z is closest
 			vp.z += stride.z;
-            tMax.z += vd.z;
+            tMax.z += dr.z;
 		}
 
 	}
