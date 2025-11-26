@@ -30,7 +30,7 @@ uniform float iTime;
 // constants
 const vec3 colors[5] = {vec3(0.1,0.7,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(0.4,0.6,1.0), vec3(1.0)};
 
-const float renderDist = 2048;
+const float renderDist = 1024;
 
 // block data getter
 uint getData(uint m) {
@@ -69,13 +69,16 @@ bool posWithin(vec3 p, vec3 mini, vec3 maxi) {
 // main raymarching loop.
 void main() {
     FragColor = vec4(vec3(0.4,0.6,1.0),1.0);
-    ivec2 coarsePix = ivec2(gl_FragCoord.xy) / passRes;
-    vec2 uv = (vec2(coarsePix) + 0.5) / vec2(screenWidth/4,screenHeight/4);
-    vec3 ro = texture(coarseTex, uv).xyz;
+    vec2 uv = gl_FragCoord.xy / vec2(screenWidth,screenHeight);
+    float dist = texture(coarseTex, uv).x;
+    FragColor = vec4(dist,vec2(0.0),1.0);
+    return;
 
-    if (length(ro-vec3(pPosX, pPosY, pPosZ)) > renderDist) return;
+    if (dist > renderDist) return;
     vec3 lookAt = vec3(pDirX, pDirY, pDirZ);
     vec3 rd = getRayDir(gl_FragCoord.xy, vec2(screenWidth,screenHeight), lookAt, 1.0);
+
+    vec3 ro = vec3(pPosX,pPosY,pPosZ);// + rd*dist;
     
     // voxel space setup.
     ivec3 stride = ivec3(sign(rd));
@@ -101,7 +104,7 @@ void main() {
         if (data > 0u) {
             vec3 c = colors[data-1]; // -1 to go to 0 in array when 0 is air.
             float percent = float(i)/float(renderDist);
-            float atten = percent*percent*percent*percent*percent;
+            float atten = percent*percent*percent*percent;
             FragColor = vec4((1.0-atten) * c + atten * colors[3], 1.0);
             return;
         }

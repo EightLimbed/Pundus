@@ -25,7 +25,7 @@ uniform float iTime;
 
 // constants
 const int passRes = 4;
-const float renderDist = 2048;
+const float renderDist = 1024;
 
 // block data getter
 uint getData(uint m) {
@@ -63,10 +63,13 @@ bool posWithin(vec3 p, vec3 mini, vec3 maxi) {
 
 // main raymarching loop.
 void main() {
-    FragColor = vec4(vec3(0.0), 1.0);
+    FragColor = vec4(-10e22, vec2(0.0), 1.0);
+    
     // early out for rays that arent part of prepass
     if (int(gl_FragCoord.x) % passRes != 0) return; // if not multiple of whatever, skip
     if (int(gl_FragCoord.y) % passRes != 0) return;
+    FragColor = vec4(10e22, vec2(0.0), 1.0);
+    return;
     // camera setup.
     vec3 ro = vec3(pPosX,pPosY,pPosZ);
     vec3 lookAt = vec3(pDirX, pDirY, pDirZ);
@@ -94,7 +97,7 @@ void main() {
         uint m = morton3D(vp);
         uint data = getData(m);
         if (data > 0u) {
-            FragColor = vec4(vec3(vp), 1.0);
+            FragColor = vec4(length(ro-vp), vec2(0.0), 1.0);
             return;
         }
 

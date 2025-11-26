@@ -83,7 +83,7 @@ int main() {
 
     glGenTextures(1, &coarseTex);
     glBindTexture(GL_TEXTURE_2D, coarseTex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RED, GL_FLOAT, nullptr);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -124,14 +124,14 @@ int main() {
         // input and uniforms
         Player.HandleInputs(window, deltaTime);
         Player.HandleMouseInput(window);
-        lowResShader.setFloat("iTime", currentTime);
-        highResShader.setFloat("iTime", currentTime);
+        //lowResShader.setFloat("iTime", currentTime);
+        //highResShader.setFloat("iTime", currentTime);
         processPlayer(Player, lowResShader, highResShader);
         processInput(window);
 
         // low res pass
         glBindFramebuffer(GL_FRAMEBUFFER, coarseFBO);
-        glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+        glViewport(0, 0, SCR_WIDTH/4, SCR_HEIGHT/4);
 
         glClear(GL_COLOR_BUFFER_BIT);
 
