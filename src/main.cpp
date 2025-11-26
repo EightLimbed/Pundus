@@ -8,10 +8,17 @@
 #include <array>
 #include <string>
 
+// functions
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window);
+void processPlayer(PlayerController Player, Shader lowRes, Shader highRes);
 
-Shader* screenPtr;
+// pointers
+Shader* lowResPtr;
+Shader* highResPtr;
+
+GLuint coarseFBO; // FBO for low resolution
+GLuint coarseTex; // result of low res pass
 
 // settings
 unsigned int SCR_WIDTH = 800;
@@ -59,14 +66,33 @@ int main() {
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // build and compile shader program
-    Shader ScreenShader("shaders/4.3.screenquad.vert","shaders/4.3.raymarcher.frag");
+    Shader lowResShader("shaders/4.3.screenquad.vert","shaders/4.3.lowrespass.frag");
+    Shader highResShader("shaders/4.3.screenquad.vert","shaders/4.3.highrespass.frag");
     Shader TerrainShader("shaders/4.3.terrain.comp");
-    screenPtr = &ScreenShader; // pointer for screen resizing
+    lowResPtr = &lowResShader; // pointer for screen resizing
+    highResPtr = &highResShader; // pointer for screen resizing
 
     // vaos need to be bound because of biolerplating shizzle (even if not used)
     GLuint vao;
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
+
+    // texture result binding
+    glGenFramebuffers(1, &coarseFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, coarseFBO);
+
+    glGenTextures(1, &coarseTex);
+    glBindTexture(GL_TEXTURE_2D, coarseTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, coarseTex, 0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);  // restore
 
     //construct main buffer (voxel data)
     GLuint ssbo0;
@@ -94,29 +120,40 @@ int main() {
         float currentTime = float(glfwGetTime());
         deltaTime = currentTime - lastTime;
         lastTime = currentTime;
-        // process input
+
+        // input and uniforms
         Player.HandleInputs(window, deltaTime);
         Player.HandleMouseInput(window);
-        // upload player data to GPU
-        ScreenShader.setFloat("iTime", currentTime);
-        ScreenShader.setFloat("pPosX", Player.posX);
-        ScreenShader.setFloat("pPosY", Player.posY);
-        ScreenShader.setFloat("pPosZ", Player.posZ);
-        ScreenShader.setFloat("pDirX", Player.dirX);
-        ScreenShader.setFloat("pDirY", Player.dirY);
-        ScreenShader.setFloat("pDirZ", Player.dirZ);
+        lowResShader.setFloat("iTime", currentTime);
+        highResShader.setFloat("iTime", currentTime);
+        processPlayer(Player, lowResShader, highResShader);
         processInput(window);
 
-        // render
-        glClear(GL_COLOR_BUFFER_BIT);
-        
-        // compute shaders go here
+        // low res pass
+        glBindFramebuffer(GL_FRAMEBUFFER, coarseFBO);
+        glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
 
-        // render the screen
-        ScreenShader.use();
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        lowResShader.use();
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-        // glfw: swap buffers and poll IO events
+        // high res pass
+        glBindFramebuffer(GL_FRAMEBUFFER, 0); // default framebuffer
+        glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        //highResShader.use();
+
+        // bind coarseTex to texture unit 0
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, coarseTex);
+        highResShader.setInt("coarseTex", 0); // pointer to sampler
+
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+        // swap / poll
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
@@ -124,6 +161,23 @@ int main() {
     // glfw: terminate, clearing all previously allocated GLFW resources.
     glfwTerminate();
     return 0;
+}
+
+void processPlayer(PlayerController Player, Shader lowRes, Shader highRes) {
+    // low res
+    lowRes.setFloat("pPosX", Player.posX);
+    lowRes.setFloat("pPosY", Player.posY);
+    lowRes.setFloat("pPosZ", Player.posZ);
+    lowRes.setFloat("pDirX", Player.dirX);
+    lowRes.setFloat("pDirY", Player.dirY);
+    lowRes.setFloat("pDirZ", Player.dirZ);
+    // high res
+    highRes.setFloat("pPosX", Player.posX);
+    highRes.setFloat("pPosY", Player.posY);
+    highRes.setFloat("pPosZ", Player.posZ);
+    highRes.setFloat("pDirX", Player.dirX);
+    highRes.setFloat("pDirY", Player.dirY);
+    highRes.setFloat("pDirZ", Player.dirZ);
 }
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
@@ -140,12 +194,17 @@ void processInput(GLFWwindow *window) {
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-    // make sure the viewport matches the new window dimensions; note that width and 
-    // height will be significantly larger than specified on retina displays.
-    Shader ScreenShader = *screenPtr;
     std::cout<<"resized to: "<<width<<", "<<height<<std::endl;
-    // resize window when necessary
-    ScreenShader.setInt("screenWidth", width);
-    ScreenShader.setInt("screenHeight", height);
+    SCR_WIDTH = width;
+    SCR_HEIGHT = height;
+    // make sure the viewport matches the new window dimensions; note that width and height will be significantly larger than specified on retina displays.
+    Shader lowRes = *lowResPtr; // low res shader resize
+    lowRes.setInt("screenWidth", width);
+    lowRes.setInt("screenHeight", height);
+
+    Shader highRes = *highResPtr; // high res shader resize
+    highRes.setInt("screenWidth", width);
+    highRes.setInt("screenHeight", height);
+
     glViewport(0, 0, width, height);
 }

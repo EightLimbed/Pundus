@@ -24,10 +24,8 @@ uniform int screenHeight = 600;
 uniform float iTime;
 
 // constants
-const vec3 colors[5] = {vec3(0.1,0.7,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(0.4,0.6,1.0), vec3(1.0)};
-const int chunkSize = 8;
-const float fChunkSize = 8.0;
-const float renderDist = 512;
+const int passRes = 4;
+const float renderDist = 2048;
 
 // block data getter
 uint getData(uint m) {
@@ -65,14 +63,17 @@ bool posWithin(vec3 p, vec3 mini, vec3 maxi) {
 
 // main raymarching loop.
 void main() {
-    FragColor = vec4(0.4,0.6,2.0,1.0);
+    FragColor = vec4(vec3(0.0), 1.0);
+    // early out for rays that arent part of prepass
+    if (int(gl_FragCoord.x) % passRes != 0) return; // if not multiple of whatever, skip
+    if (int(gl_FragCoord.y) % passRes != 0) return;
     // camera setup.
     vec3 ro = vec3(pPosX,pPosY,pPosZ);
     vec3 lookAt = vec3(pDirX, pDirY, pDirZ);
     vec3 rd = getRayDir(gl_FragCoord.xy, vec2(screenWidth,screenHeight), lookAt, 1.0);
     
     // voxel space setup.
-    ivec3 stride = ivec3(sign(rd));
+    ivec3 stride = ivec3(sign(rd))*passRes;
     // inverse of rd, made to be non 0.
     vec3 dr = 1.0 / max(abs(rd), vec3(1e-6));
 
@@ -85,7 +86,7 @@ void main() {
 
     vec3 tMax = bound * dr; // how far to first voxel boundary per axis.
 
-    for (int i = 0; i < renderDist; i++) {
+    for (int i = 0; i < renderDist/passRes; i++) {
         
         //float d = length(vp-ro);
         //if (d*d>renderDist*renderDist) return; // early out with distance.
@@ -93,9 +94,7 @@ void main() {
         uint m = morton3D(vp);
         uint data = getData(m);
         if (data > 0u) {
-            vec3 c = colors[data-1]; // -1 to go to 0 in array when 0 is air.
-            float atten = float(i)/float(renderDist);
-            (data == 4 || data == 5) ? FragColor = vec4(c,1.0) : FragColor = vec4((1.0-atten) * c + atten * colors[3], 1.0);
+            FragColor = vec4(vec3(vp), 1.0);
             return;
         }
 

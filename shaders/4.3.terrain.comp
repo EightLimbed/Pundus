@@ -110,7 +110,7 @@ void main() {
     uvec3 id = gl_GlobalInvocationID;
     //uvec3 local = id & 8u;
     uint m = morton3D(id);
-    float height = (noise2D(vec2(id.x,id.z)/512.0) + 1.0) * 256.0;
+    float height = (noise2D(vec2(id.x,id.z)/512.0) + 1.0) * 256.0 + (noise2D(vec2(id.z,id.x)/64.0) + 1.0) * 24.0;
     uint data = 0;
     if (float(id.y) < height) {
         if (float(id.y) >= height-1) data = 1;
