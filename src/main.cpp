@@ -23,6 +23,9 @@ GLuint coarseTex; // result of low res pass
 // settings
 unsigned int SCR_WIDTH = 800;
 unsigned int SCR_HEIGHT = 600;
+unsigned int PASS_RES = 4;
+unsigned int PRE_WIDTH = SCR_WIDTH/PASS_RES;
+unsigned int PRE_HEIGHT = SCR_HEIGHT/PASS_RES;
 
 const uint32_t AXIS_SIZE = 1024;
 const uint32_t NUM_VOXELS = AXIS_SIZE * AXIS_SIZE * AXIS_SIZE;
@@ -66,9 +69,9 @@ int main() {
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // build and compile shader program
-    Shader lowResShader("shaders/4.3.screenquad.vert","shaders/4.3.lowrespass.frag");
+    Shader lowResShader("shaders/4.3.lowrespass.comp");
     Shader highResShader("shaders/4.3.screenquad.vert","shaders/4.3.highrespass.frag");
-    Shader TerrainShader("shaders/4.3.terrain.comp");
+    Shader terrainShader("shaders/4.3.terrain.comp");
     lowResPtr = &lowResShader; // pointer for screen resizing
     highResPtr = &highResShader; // pointer for screen resizing
 
@@ -77,23 +80,6 @@ int main() {
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
 
-    // texture result binding
-    glGenFramebuffers(1, &coarseFBO);
-    glBindFramebuffer(GL_FRAMEBUFFER, coarseFBO);
-
-    glGenTextures(1, &coarseTex);
-    glBindTexture(GL_TEXTURE_2D, coarseTex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RED, GL_FLOAT, nullptr);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, coarseTex, 0);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);  // restore
-
     //construct main buffer (voxel data)
     GLuint ssbo0;
     glGenBuffers(1, &ssbo0);
@@ -101,8 +87,15 @@ int main() {
     glBufferData(GL_SHADER_STORAGE_BUFFER, SSBO0_SIZE, nullptr, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo0); // very important, don't forget, deleted accidentally once and could not figure out what was going wrong for like an hour.
 
+    // prepass texture (prepass depth data)
+    GLuint prePassTex;
+    glGenTextures(1, &prePassTex);
+    glBindTexture(GL_TEXTURE_2D, prePassTex);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, SCR_WIDTH / PASS_RES, SCR_HEIGHT / PASS_RES);
+    
+
     // generate terrain
-    TerrainShader.use();
+    terrainShader.use();
 
     // dispatch compute shader threads, based on thread pool size of 64.
     glDispatchCompute(AXIS_SIZE/4, AXIS_SIZE/4, AXIS_SIZE/4);
@@ -113,6 +106,7 @@ int main() {
     // render loop
     float deltaTime = 0.0f;
     float lastTime = 0.0f;
+    
 
     while (!glfwWindowShouldClose(window))
     {
@@ -129,27 +123,22 @@ int main() {
         processPlayer(Player, lowResShader, highResShader);
         processInput(window);
 
-        // low res pass
-        glBindFramebuffer(GL_FRAMEBUFFER, coarseFBO);
-        glViewport(0, 0, SCR_WIDTH/4, SCR_HEIGHT/4);
-
-        glClear(GL_COLOR_BUFFER_BIT);
-
+        // low res pass.
+        glBindImageTexture(0, prePassTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
         lowResShader.use();
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-        // high res pass
+        // dispatch compute shader threads, based on thread pool size of 64.
+        glDispatchCompute((PRE_WIDTH+7)/8, (PRE_HEIGHT+7)/8, 1);
+
+        // make sure writes are visible to everything else
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+
+        // high res pass.
         glBindFramebuffer(GL_FRAMEBUFFER, 0); // default framebuffer
-        glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
-
+    
         glClear(GL_COLOR_BUFFER_BIT);
 
-        //highResShader.use();
-
-        // bind coarseTex to texture unit 0
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, coarseTex);
-        highResShader.setInt("coarseTex", 0); // pointer to sampler
+        highResShader.use();
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -163,21 +152,21 @@ int main() {
     return 0;
 }
 
-void processPlayer(PlayerController Player, Shader lowRes, Shader highRes) {
+void processPlayer(PlayerController Player, Shader lowResShader, Shader highResShader) {
     // low res
-    lowRes.setFloat("pPosX", Player.posX);
-    lowRes.setFloat("pPosY", Player.posY);
-    lowRes.setFloat("pPosZ", Player.posZ);
-    lowRes.setFloat("pDirX", Player.dirX);
-    lowRes.setFloat("pDirY", Player.dirY);
-    lowRes.setFloat("pDirZ", Player.dirZ);
+    lowResShader.setFloat("pPosX", Player.posX);
+    lowResShader.setFloat("pPosY", Player.posY);
+    lowResShader.setFloat("pPosZ", Player.posZ);
+    lowResShader.setFloat("pDirX", Player.dirX);
+    lowResShader.setFloat("pDirY", Player.dirY);
+    lowResShader.setFloat("pDirZ", Player.dirZ);
     // high res
-    highRes.setFloat("pPosX", Player.posX);
-    highRes.setFloat("pPosY", Player.posY);
-    highRes.setFloat("pPosZ", Player.posZ);
-    highRes.setFloat("pDirX", Player.dirX);
-    highRes.setFloat("pDirY", Player.dirY);
-    highRes.setFloat("pDirZ", Player.dirZ);
+    highResShader.setFloat("pPosX", Player.posX);
+    highResShader.setFloat("pPosY", Player.posY);
+    highResShader.setFloat("pPosZ", Player.posZ);
+    highResShader.setFloat("pDirX", Player.dirX);
+    highResShader.setFloat("pDirY", Player.dirY);
+    highResShader.setFloat("pDirZ", Player.dirZ);
 }
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
@@ -197,6 +186,9 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     std::cout<<"resized to: "<<width<<", "<<height<<std::endl;
     SCR_WIDTH = width;
     SCR_HEIGHT = height;
+    PRE_WIDTH = SCR_WIDTH/PASS_RES;
+    PRE_HEIGHT = SCR_HEIGHT/PASS_RES;
+    std::cout<<"prepass at: "<<PRE_WIDTH<<", "<<PRE_HEIGHT<<std::endl;
     // make sure the viewport matches the new window dimensions; note that width and height will be significantly larger than specified on retina displays.
     Shader lowRes = *lowResPtr; // low res shader resize
     lowRes.setInt("screenWidth", width);

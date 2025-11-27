@@ -7,7 +7,7 @@ layout(std430, binding = 0) buffer BlockData {
 out vec4 FragColor;
 
 // positions from coarse prepass
-uniform sampler2D coarseTex;
+layout(rgba32f, binding=0) uniform readonly image2D prePass;
 
 // player position
 uniform float pPosX;
@@ -22,7 +22,7 @@ uniform float pDirZ;
 // screen
 uniform int screenWidth = 800;
 uniform int screenHeight = 600;
-const int passRes = 4;
+const float passRes = 4.0;
 
 // time
 uniform float iTime;
@@ -65,20 +65,17 @@ vec3 getRayDir(vec2 fragCoord, vec2 res, vec3 lookAt, float zoom) {
 bool posWithin(vec3 p, vec3 mini, vec3 maxi) {
     return p.x > 0 && p.y > 0 && p.z > 0 && p.x < 1024 && p.y < 1024 && p.z < 1024;
 }
-
 // main raymarching loop.
 void main() {
-    FragColor = vec4(vec3(0.4,0.6,1.0),1.0);
-    vec2 uv = gl_FragCoord.xy / vec2(screenWidth,screenHeight);
-    float dist = texture(coarseTex, uv).x;
-    FragColor = vec4(dist,vec2(0.0),1.0);
+    ivec2 texel = ivec2(gl_FragCoord.xy) / int(passRes); // integer division
+    vec4 value = imageLoad(prePass, texel);
+    FragColor = value;
     return;
-
-    if (dist > renderDist) return;
+    FragColor = vec4(colors[3],1.0);
     vec3 lookAt = vec3(pDirX, pDirY, pDirZ);
     vec3 rd = getRayDir(gl_FragCoord.xy, vec2(screenWidth,screenHeight), lookAt, 1.0);
 
-    vec3 ro = vec3(pPosX,pPosY,pPosZ);// + rd*dist;
+    vec3 ro = vec3(pPosX,pPosY,pPosZ);//+ rd*dist;
     
     // voxel space setup.
     ivec3 stride = ivec3(sign(rd));

@@ -1,0 +1,72 @@
+#version 430 core
+
+layout(local_size_x = 8, local_size_y = 8) in; // 64 local threads is apparently sweet spot
+
+layout(std430, binding = 0) buffer BlockData {
+    uint blockData[];
+};
+
+layout(rgba32f, binding=0) uniform image2D prePass;
+
+// player position
+uniform float pPosX;
+uniform float pPosY;
+uniform float pPosZ;
+
+// player direction
+uniform float pDirX;
+uniform float pDirY;
+uniform float pDirZ;
+
+// screen
+uniform int screenWidth = 800;
+uniform int screenHeight = 600;
+
+// time
+uniform float iTime;
+
+// constants
+const float passRes = 4.0;
+const float renderDist = 1024;
+
+// block data getter
+uint getData(uint m) {
+    uint idx = m >> 2u; // divide by 4
+    uint bit = (m & 3u) * 8u; // which byte in that uint
+    return (blockData[idx] >> bit) & 0xFFu;
+}
+
+// morton encoding/decoding
+uint part1by2(uint x) {
+    x &= 0x000003FFu;
+    x = (x | (x << 16)) & 0x030000FFu;
+    x = (x | (x << 8))  & 0x0300F00Fu;
+    x = (x | (x << 4))  & 0x030C30C3u;
+    x = (x | (x << 2))  & 0x09249249u;
+    return x;
+}
+
+uint morton3D(uvec3 p) {
+    return part1by2(p.x) | (part1by2(p.y) << 1) | (part1by2(p.z) << 2);
+}
+
+// camera shizzle
+vec3 getRayDir(vec2 fragCoord, vec2 res, vec3 lookAt, float zoom) {
+    vec2 uv = (fragCoord - 0.5 * res) / res.y;
+    vec3 f = normalize(lookAt);
+    vec3 r = normalize(cross(vec3(0.0,1.0,0.0), f));
+    vec3 u = cross(f,r);
+    return normalize(f + zoom * (uv.x*r + uv.y*u));
+}
+
+bool posWithin(vec3 p, vec3 mini, vec3 maxi) {
+    return p.x > 0 && p.y > 0 && p.z > 0 && p.x < 1024 && p.y < 1024 && p.z < 1024;
+}
+
+void main() {
+    vec2 idf = vec2(gl_GlobalInvocationID.xy);
+    vec2 size = vec2(imageSize(prePass));
+    vec4 debug = vec4(idf / size, 0.0, 1.0);
+    imageStore(prePass, ivec2(idf), debug);
+    return;
+}
