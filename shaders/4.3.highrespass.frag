@@ -30,7 +30,7 @@ uniform float iTime;
 // constants
 const vec3 colors[5] = {vec3(0.1,0.7,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(0.4,0.6,1.0), vec3(1.0)};
 
-const float renderDist = 1024.0;
+const float renderDist = 8000.0;
 
 // block data getter
 uint getData(uint m) {
@@ -67,15 +67,26 @@ bool posWithin(vec3 p, vec3 mini, vec3 maxi) {
 }
 // main raymarching loop.
 void main() {
-    ivec2 texel = ivec2(gl_FragCoord.xy) / int(passRes); // integer division
-    vec4 dist = imageLoad(prePass, texel);
-    //FragColor = dist;
-    //return;
-    FragColor = vec4(colors[3],1.0);
+    ivec2 texel = ivec2(gl_FragCoord.xy) / int(passRes); // integer division, gets image coordinate.
+    float dist = 1e20; // big distance.
+    // makes sure no close neighbors of dist are hits. corners are unnecessary.
+    for (int x = -1; x <=1; x++) {
+        ivec2 neighbor = texel + ivec2(x,0);
+        float nDist = imageLoad(prePass, neighbor).x;
+        if (nDist < dist) dist = nDist;
+    }
+    for (int y = -1; y <=1; y++) {
+        ivec2 neighbor = texel + ivec2(0,y);
+        float nDist = imageLoad(prePass, neighbor).x;
+        if (nDist < dist) dist = nDist;
+    }
+    dist -= 4.0; // double prepass step works good.
+    FragColor = vec4(colors[3],1.0); // background color.
+    if (dist > renderDist+4096) return;
     vec3 lookAt = vec3(pDirX, pDirY, pDirZ);
     vec3 rd = getRayDir(gl_FragCoord.xy, vec2(screenWidth,screenHeight), lookAt, 1.0);
 
-    vec3 ro = vec3(pPosX,pPosY,pPosZ);//+ rd*dist;
+    vec3 ro = vec3(pPosX,pPosY,pPosZ)+ rd*dist.x;
     
     // voxel space setup.
     ivec3 stride = ivec3(sign(rd));
@@ -95,12 +106,13 @@ void main() {
         
         //float d = length(vp-ro);
         //if (d*d>renderDist*renderDist) return; // early out with distance.
-
+        float t = length(ro-vp)+dist;
+        if (t > renderDist) return;
         uint m = morton3D(vp);
         uint data = getData(m);
         if (data > 0u) {
             vec3 c = colors[data-1]; // -1 to go to 0 in array when 0 is air.
-            float percent = float(i)/float(renderDist);
+            float percent = (float(i)+t)/float(renderDist+4096);
             float atten = percent*percent*percent*percent;
             FragColor = vec4((1.0-atten) * c + atten * colors[3], 1.0);
             return;
@@ -120,5 +132,4 @@ void main() {
 		}
 
 	}
-    FragColor += dist;
 }

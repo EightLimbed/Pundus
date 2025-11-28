@@ -26,8 +26,8 @@ uniform int screenHeight = 600;
 uniform float iTime;
 
 // constants
-const float passRes = 4;
-const float renderDist = 1024.0;
+const float passRes = 4.0;
+const float renderDist = 8000.0;
 
 // block data getter
 uint getData(uint m) {
@@ -65,7 +65,7 @@ bool posWithin(vec3 p, vec3 mini, vec3 maxi) {
 
 void main() {
     ivec2 fragCoord = ivec2(gl_GlobalInvocationID.xy);
-    imageStore(prePass, fragCoord, vec4(0.0));
+    //imageStore(prePass, fragCoord, vec4(0.0));
     //return;
     // camera setup.
     vec3 ro = vec3(pPosX,pPosY,pPosZ);
@@ -86,7 +86,7 @@ void main() {
 
     vec3 tMax = bound * dr; // how far to first voxel boundary per axis.
 
-    for (int i = 0; i < renderDist/passRes; i++) {
+    for (int i = 0; i < renderDist; i++) {
         
         //float d = length(vp-ro);
         //if (d*d>renderDist*renderDist) return; // early out with distance.
