@@ -68,9 +68,9 @@ bool posWithin(vec3 p, vec3 mini, vec3 maxi) {
 // main raymarching loop.
 void main() {
     ivec2 texel = ivec2(gl_FragCoord.xy) / int(passRes); // integer division
-    vec4 value = imageLoad(prePass, texel);
-    FragColor = value;
-    return;
+    vec4 dist = imageLoad(prePass, texel);
+    //FragColor = dist;
+    //return;
     FragColor = vec4(colors[3],1.0);
     vec3 lookAt = vec3(pDirX, pDirY, pDirZ);
     vec3 rd = getRayDir(gl_FragCoord.xy, vec2(screenWidth,screenHeight), lookAt, 1.0);
@@ -120,4 +120,5 @@ void main() {
 		}
 
 	}
+    FragColor.x += dist.x;
 }
