@@ -27,7 +27,7 @@ uniform float iTime;
 
 // constants
 const float passRes = 4;
-const float renderDist = 1024;
+const float renderDist = 1024.0;
 
 // block data getter
 uint getData(uint m) {

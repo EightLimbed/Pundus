@@ -30,7 +30,7 @@ uniform float iTime;
 // constants
 const vec3 colors[5] = {vec3(0.1,0.7,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(0.4,0.6,1.0), vec3(1.0)};
 
-const float renderDist = 1024;
+const float renderDist = 1024.0;
 
 // block data getter
 uint getData(uint m) {
@@ -120,5 +120,5 @@ void main() {
 		}
 
 	}
-    FragColor.x += dist.x;
+    FragColor += dist;
 }
