@@ -32,6 +32,7 @@ unsigned int PRE_HEIGHT = SCR_HEIGHT/PASS_RES;
 const uint32_t AXIS_SIZE = 1024;
 const uint32_t NUM_VOXELS = AXIS_SIZE * AXIS_SIZE * AXIS_SIZE;
 const uint32_t NUM_VUINTS = (NUM_VOXELS + 3) / 4; // ceil division, amount of uints total.
+//const uint32_t NUM_GUINTS = (NUM_VUINTS)/(PASS_RES*PASS_RES*PASS_RES); // uints per group for low res pass.
 
 // sizes
 const size_t SSBO0_SIZE = sizeof(GLuint) * (NUM_VUINTS);
@@ -71,9 +72,9 @@ int main() {
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // build and compile shader program
+    Shader terrainShader("shaders/4.3.terrain.comp");
     Shader lowResShader("shaders/4.3.lowrespass.comp");
     Shader highResShader("shaders/4.3.screenquad.vert","shaders/4.3.highrespass.frag");
-    Shader terrainShader("shaders/4.3.terrain.comp");
     lowResPtr = &lowResShader; // pointer for screen resizing
     highResPtr = &highResShader; // pointer for screen resizing
 
@@ -94,7 +95,8 @@ int main() {
     glGenTextures(1, &prePassTex);
     glBindTexture(GL_TEXTURE_2D, prePassTex);
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, PRE_WIDTH, PRE_HEIGHT);
-    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     // generate terrain
     terrainShader.use();
