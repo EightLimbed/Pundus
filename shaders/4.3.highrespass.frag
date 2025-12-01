@@ -30,7 +30,7 @@ uniform float iTime;
 // constants
 const float passRes = 4.0;
 const vec3 colors[5] = {vec3(0.1,0.7,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(0.4,0.6,1.0), vec3(1.0)};
-const float renderDist = 2048.0;
+const float renderDist = 1024.0;
 
 // block data getter
 uint getData(uint m) {
@@ -75,8 +75,7 @@ bool posWithin(vec3 p, vec3 mini, vec3 maxi) {
 // main raymarching loop.
 void main() {
     ivec2 texel = ivec2(gl_FragCoord.xy) / int(passRes); // integer division, gets image coordinate.
-    float dist = 1e20; // big distance.
-    // makes sure no close neighbors of dist are hits. corners seem unnecessary, but I might as well.
+    float dist = imageLoad(prePass, texel).x; // big distance.
     for (int x = -1; x <=1; x++) {
         for (int y = -1; y <=1; y++) {
             ivec2 neighbor = texel + ivec2(x,y);
@@ -84,6 +83,9 @@ void main() {
             if (nDist < dist) dist = nDist;
         }
     }
+    //FragColor.x = dist/1024.0;
+    //return;
+    // makes sure no close neighbors of dist are hits. corners seem unnecessary, but I might as well.
     dist -= 8.0; // double prepass step works good.
     FragColor = vec4(colors[3],1.0); // background color.
     if (dist > renderDist) return;
@@ -123,6 +125,7 @@ void main() {
 
         float t = length(ro-vp)+dist;
         if (t > renderDist) return;
+        //if (t > renderDist) return;
 
         // check voxel
         uint m = morton3D(vp);
@@ -132,6 +135,7 @@ void main() {
             float percent = (float(i)+t)/float(renderDist+2048);
             float atten = percent*percent*percent*percent;
             FragColor = vec4(c-((data <4) ? (dot(normal, normalize(vp-vec3(500.0,1000.0,0.0))))*0.3 : 0.0),1.0);
+            //FragColor.x += dist / 1024.0;
             return;
         }
         
@@ -159,4 +163,5 @@ void main() {
 		}
 
 	}
+    //FragColor.x += dist / 1024.0;
 }

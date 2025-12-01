@@ -28,7 +28,7 @@ uniform float iTime;
 
 // constants
 const float passRes = 4.0;
-const float renderDist = 2048.0;
+const float renderDist = 1024.0;
 const int steps = int(renderDist / passRes);
 
 // block data getter
@@ -74,15 +74,14 @@ bool posWithin(vec3 p, vec3 mini, vec3 maxi) {
 
 void main() {
     ivec2 fragCoord = ivec2(gl_GlobalInvocationID.xy);
-    //imageStore(prePass, fragCoord, vec4(0.0));
     //return;
     // camera setup.
-    vec3 ro = vec3(pPosX,pPosY,pPosZ);
+    vec3 ro = vec3(pPosX,pPosY,pPosZ)/passRes;
     vec3 lookAt = vec3(pDirX, pDirY, pDirZ);
     vec3 rd = getRayDir(fragCoord, vec2(screenWidth,screenHeight)/passRes, lookAt, 1.0);
     
     // voxel space setup.
-    ivec3 stride = ivec3(sign(rd))*int(passRes);
+    ivec3 stride = ivec3(sign(rd));
     // inverse of rd, made to be non 0.
     vec3 dr = 1.0 / max(abs(rd), vec3(1e-6));
 
@@ -99,10 +98,9 @@ void main() {
         
         //float d = length(vp-ro);
         //if (d*d>renderDist*renderDist) return; // early out with distance.
-        ivec3 cp = ivec3(floor(vec3(vp) / passRes));
         
-        if (checkChunk(morton3D(cp) % 16777216)) {
-            imageStore(prePass, fragCoord, vec4(length(ro-vp),0.0,0.0,1.0));
+        if (checkChunk(morton3D(vp) % 16777216)) {
+            imageStore(prePass, fragCoord, vec4(length(ro-vp)*4.0,0.0,0.0,1.0));
             return;
         }
 
@@ -120,4 +118,5 @@ void main() {
 		}
 
 	}
+    imageStore(prePass, fragCoord, vec4(length(ro-vp)*4.0,0.0,0.0,0.0));
 }
