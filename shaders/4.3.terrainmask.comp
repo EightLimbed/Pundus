@@ -3,10 +3,9 @@
 layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in; // 64 local threads is apparently sweet spot
 
 layout(std430, binding = 0) buffer BlockData {
+    uint occuMask[524288];
     uint blockData[];
 };
-
-const uint halfPassRes = 2;
 
 // morton encoding/decoding
 uint part1by2(uint x) {
@@ -30,18 +29,17 @@ void main() {
     uint idx = m >> 5u; 
     uint bit = m & 31u;
     // every two uints checked as group to see if empty.
-    uint nm = m*halfPassRes;
+    uint nm = m*16u;
     bool empty = true;
-    for (uint i = 0u; i < halfPassRes; i++) {
+    for (uint i = 0u; i < 16u; i++) {
         if (blockData[nm+i] != 0u) {
             empty = false;
             break;
         }
     }
     if (empty) {
-        atomicOr(chunkMask[idx], 1u << bit);
-        //atomicAnd(chunkMask[idx], ~(1u << bit));
+        atomicOr(occuMask[idx], 1u << bit);
     } else {
-        atomicAnd(chunkMask[idx], ~(1u << bit));
+        atomicAnd(occuMask[idx], ~(1u << bit));
     }
 }

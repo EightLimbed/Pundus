@@ -3,6 +3,7 @@
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in; // 64 local threads is apparently sweet spot
 
 layout(std430, binding = 0) buffer BlockData {
+    uint occuMask[524288];
     uint blockData[];
 };
 
@@ -27,13 +28,21 @@ uniform float iTime;
 
 // constants
 const float passRes = 4.0;
-const float renderDist = 4096.0;
+const float renderDist = 2048.0;
+const int steps = int(renderDist / passRes);
 
 // block data getter
 uint getData(uint m) {
     uint idx = m >> 2u; // divide by 4
     uint bit = (m & 3u) * 8u; // which byte in that uint
     return (blockData[idx] >> bit) & 0xFFu;
+}
+
+// chunk mask getter
+bool checkChunk(uint m) {
+    uint idx = m >> 5u; // which 32-bit term (divide by 32)
+    uint bit = m & 31u; // which bit in that term (mod 32 or whatever)
+    return ((occuMask[idx] >> bit) & 1u) == 0u;
 }
 
 // morton encoding/decoding
@@ -90,10 +99,9 @@ void main() {
         
         //float d = length(vp-ro);
         //if (d*d>renderDist*renderDist) return; // early out with distance.
-
-        uint m = morton3D(vp);
-        uint data = getData(m);
-        if (data > 0u) {
+        ivec3 cp = ivec3(floor(vec3(vp) / passRes));
+        
+        if (checkChunk(morton3D(cp) % 16777216)) {
             imageStore(prePass, fragCoord, vec4(length(ro-vp),0.0,0.0,1.0));
             return;
         }

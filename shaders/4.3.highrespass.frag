@@ -1,6 +1,7 @@
 #version 430 core
 
 layout(std430, binding = 0) buffer BlockData {
+    uint occuMask[524288];
     uint blockData[];
 };
 
@@ -29,13 +30,20 @@ uniform float iTime;
 // constants
 const float passRes = 4.0;
 const vec3 colors[5] = {vec3(0.1,0.7,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(0.4,0.6,1.0), vec3(1.0)};
-const float renderDist = 4096.0;
+const float renderDist = 2048.0;
 
 // block data getter
 uint getData(uint m) {
     uint idx = m >> 2u; // divide by 4
     uint bit = (m & 3u) * 8u; // which byte in that uint
     return (blockData[idx] >> bit) & 0xFFu;
+}
+
+// chunk mask getter
+bool checkChunk(uint m) {
+    uint idx = m >> 5u; // which 32-bit term (divide by 32)
+    uint bit = m & 31u; // which bit in that term (mod 32 or whatever)
+    return ((occuMask[idx] >> bit) & 1u) == 0u;
 }
 
 // morton encoding/decoding
@@ -62,7 +70,7 @@ vec3 getRayDir(vec2 fragCoord, vec2 res, vec3 lookAt, float zoom) {
 }
 
 bool posWithin(vec3 p, vec3 mini, vec3 maxi) {
-    return p.x > 0 && p.y > 0 && p.z > 0 && p.x < 1024 && p.y < 1024 && p.z < 1024;
+    return p.x > mini.x && p.y > mini.y && p.z > mini.z && p.x < maxi.z && p.y < maxi.y && p.z < maxi.z;
 }
 // main raymarching loop.
 void main() {
@@ -78,7 +86,9 @@ void main() {
     }
     dist -= 8.0; // double prepass step works good.
     FragColor = vec4(colors[3],1.0); // background color.
-    if (dist > renderDist+4096.0) return;
+    if (dist > renderDist) return;
+
+    // camera setup.
     vec3 lookAt = vec3(pDirX, pDirY, pDirZ);
     vec3 rd = getRayDir(gl_FragCoord.xy, vec2(screenWidth,screenHeight), lookAt, 1.0);
 
@@ -91,6 +101,7 @@ void main() {
     vec3 dr = 1.0 / max(abs(rd), vec3(1e-6));
 
     ivec3 vp = ivec3(floor(ro)); //starting position.
+
     // distance to first voxel boundary.
     vec3 bound;
     bound.x = (rd.x > 0.0) ? (float(vp.x) + 1.0 - ro.x) : (ro.x - float(vp.x));
@@ -99,12 +110,21 @@ void main() {
 
     vec3 tMax = bound * dr; // how far to first voxel boundary per axis.
 
+    // pre step normal calculations
+    if (tMax.x <= tMax.y && tMax.x <= tMax.z) {
+            normal = vec3(stride.x,0.0,0.0);
+		} else if (tMax.y <= tMax.z) {
+            normal = vec3(0.0,stride.y,0.0);
+		} else {
+            normal = vec3(0.0,0.0,stride.z);
+    }
+
     for (int i = 0; i < renderDist; i++) {
 
-        //float d = length(vp-ro);
-        //if (d*d>renderDist*renderDist) return; // early out with distance.
         float t = length(ro-vp)+dist;
         if (t > renderDist) return;
+
+        // check voxel
         uint m = morton3D(vp);
         uint data = getData(m);
         if (data > 0u) {
@@ -114,6 +134,15 @@ void main() {
             FragColor = vec4(c-((data <4) ? (dot(normal, normalize(vp-vec3(500.0,1000.0,0.0))))*0.3 : 0.0),1.0);
             return;
         }
+        
+        //ivec3 cp = ivec3(floor(vec3(vp) / passRes)); // occupancy mask debug
+        //if (checkChunk(morton3D(cp) % 16777216) && posWithin(vec3(vp), vec3(0.0), vec3(1024.0))) {
+            //vec3 c = colors[2]; // -1 to go to 0 in array when 0 is air.
+            //float percent = (float(i)+t)/float(renderDist+2048);
+            //float atten = percent*percent*percent*percent;
+            //FragColor = vec4(c-dot(normal, normalize(vp-vec3(500.0,1000.0,0.0)))*0.3 ,1.0);
+            //return;
+        //}
 
 		if (tMax.x <= tMax.y && tMax.x <= tMax.z) { // X is closest
 			vp.x += stride.x;

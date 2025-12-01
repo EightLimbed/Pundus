@@ -73,6 +73,7 @@ int main() {
 
     // build and compile shader program
     Shader terrainShader("shaders/4.3.terrain.comp");
+    Shader terrainMaskShader("shaders/4.3.terrainmask.comp");
     Shader lowResShader("shaders/4.3.lowrespass.comp");
     Shader highResShader("shaders/4.3.screenquad.vert","shaders/4.3.highrespass.frag");
     lowResPtr = &lowResShader; // pointer for screen resizing
@@ -95,8 +96,6 @@ int main() {
     glGenTextures(1, &prePassTex);
     glBindTexture(GL_TEXTURE_2D, prePassTex);
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, PRE_WIDTH, PRE_HEIGHT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     // generate terrain
     terrainShader.use();
@@ -107,10 +106,18 @@ int main() {
     // make sure writes are visible to everything else
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
+    // generate terrain
+    terrainMaskShader.use();
+
+    // dispatch compute shader threads, based on thread pool size of 64.
+    glDispatchCompute((AXIS_SIZE)/(4*PASS_RES), (AXIS_SIZE)/(4*PASS_RES), (AXIS_SIZE)/(4*PASS_RES));
+
+    // make sure writes are visible to everything else
+    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
     // render loop
     float deltaTime = 0.0f;
     float lastTime = 0.0f;
-    
 
     while (!glfwWindowShouldClose(window))
     {
