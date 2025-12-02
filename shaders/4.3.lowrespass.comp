@@ -28,15 +28,7 @@ uniform float iTime;
 
 // constants
 const float passRes = 4.0;
-const float renderDist = 1024.0;
-const int steps = int(renderDist / passRes);
-
-// block data getter
-uint getData(uint m) {
-    uint idx = m >> 2u; // divide by 4
-    uint bit = (m & 3u) * 8u; // which byte in that uint
-    return (blockData[idx] >> bit) & 0xFFu;
-}
+const float renderDist = 1600.0;
 
 // chunk mask getter
 bool checkChunk(uint m) {
@@ -93,14 +85,18 @@ void main() {
     bound.z = (rd.z > 0.0) ? (float(vp.z) + 1.0 - ro.z) : (ro.z - float(vp.z));
 
     vec3 tMax = bound * dr; // how far to first voxel boundary per axis.
+    float t;
 
-    for (int i = 0; i < renderDist; i++) {
-        
-        //float d = length(vp-ro);
-        //if (d*d>renderDist*renderDist) return; // early out with distance.
-        
+    for (int i = 0; i < 10000; i++) {
+
+        t = length(vp-ro)*passRes;
+        if (t > renderDist) {
+            imageStore(prePass, fragCoord, vec4(t,0.0,0.0,0.0));
+            return;
+        }
+
         if (checkChunk(morton3D(vp) % 16777216)) {
-            imageStore(prePass, fragCoord, vec4(length(ro-vp)*4.0,0.0,0.0,1.0));
+            imageStore(prePass, fragCoord, vec4(t,0.0,0.0,1.0));
             return;
         }
 
@@ -118,5 +114,5 @@ void main() {
 		}
 
 	}
-    imageStore(prePass, fragCoord, vec4(length(ro-vp)*4.0,0.0,0.0,0.0));
+    imageStore(prePass, fragCoord, vec4(t,0.0,0.0,0.0));
 }
