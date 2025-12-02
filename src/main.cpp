@@ -32,10 +32,10 @@ unsigned int PRE_HEIGHT = SCR_HEIGHT/PASS_RES;
 const uint32_t AXIS_SIZE = 1024;
 const uint32_t NUM_VOXELS = AXIS_SIZE * AXIS_SIZE * AXIS_SIZE;
 const uint32_t NUM_VUINTS = (NUM_VOXELS + 3) / 4; // ceil division, amount of uints total.
-//const uint32_t NUM_GUINTS = (NUM_VUINTS)/(PASS_RES*PASS_RES*PASS_RES); // uints per group for low res pass.
+const uint32_t NUM_GUINTS = (NUM_VUINTS)/(PASS_RES*PASS_RES*PASS_RES); // uints per group for low res pass.
 
 // sizes
-const size_t SSBO0_SIZE = sizeof(GLuint) * (NUM_VUINTS);
+const size_t SSBO0_SIZE = sizeof(GLuint) * (NUM_VUINTS+NUM_GUINTS);
 
 int main() {
     // glfw: initialize and configure
@@ -76,6 +76,7 @@ int main() {
     Shader terrainMaskShader("shaders/4.3.terrainmask.comp");
     Shader lowResShader("shaders/4.3.lowrespass.comp");
     Shader highResShader("shaders/4.3.screenquad.vert","shaders/4.3.highrespass.frag");
+    Shader blockEditShader("shaders/4.3.blockeditor.comp");
     lowResPtr = &lowResShader; // pointer for screen resizing
     highResPtr = &highResShader; // pointer for screen resizing
 

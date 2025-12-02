@@ -31,6 +31,7 @@ public:
     float dirX;
     float dirY;
     float dirZ;
+    int click = 0;
 
     PlayerController(GLFWwindow *window) {
         posX = 512;
@@ -94,6 +95,15 @@ public:
             posY -= upY * speed * deltaTime;
             posZ -= upZ * speed * deltaTime;
         }
+
+        // mouse click
+        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+            click = 1;
+        }
+        else if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
+            click = -1;
+        }
+        else click = 0;
     }
 
     void HandleMouseInput(GLFWwindow *window) {
