@@ -30,7 +30,8 @@ uniform float iTime;
 // constants
 const float passRes = 4.0;
 const vec3 colors[5] = {vec3(0.1,0.7,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(0.4,0.6,1.0), vec3(1.0)};
-const float renderDist = 1600.0;
+const float renderDist = 1024.0;
+const ivec2 nOffsets[4] = {ivec2(0,1), ivec2(0,-1), ivec2(1,0), ivec2(-1,0)};
 
 // block data getter
 uint getData(uint m) {
@@ -76,13 +77,15 @@ void main() {
     ivec2 texel = ivec2(gl_FragCoord.xy) / int(passRes); // integer division, gets image coordinate.
     float dist = imageLoad(prePass, texel).x; // big distance.
     
-    for (int x = -1; x <=1; x++) {
-        for (int y = -1; y <=1; y++) {
-            ivec2 neighbor = texel + ivec2(x,y);
-            float nDist = imageLoad(prePass, neighbor).x;
-            if (nDist < dist) dist = nDist;
+    // prevents skipping with neighbor distances.
+    for (int i = 0; i < 4; i++) {
+        float nDist = imageLoad(prePass, texel+nOffsets[i]).x;
+        if (nDist < dist) {
+            dist = nDist;
+            break;
         }
     }
+
     //FragColor.x = dist/1024.0;
     //return;
     // makes sure no close neighbors of dist are hits. corners seem unnecessary, but I might as well.

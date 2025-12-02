@@ -7,6 +7,9 @@ layout(std430, binding = 0) buffer BlockData {
     uint blockData[];
 };
 
+const uint passRes = 4u;
+const uint maskAmount = passRes*passRes*passRes/4;
+
 // morton encoding/decoding
 uint part1by2(uint x) {
     x &= 0x000003FFu;
@@ -29,9 +32,9 @@ void main() {
     uint idx = m >> 5u; 
     uint bit = m & 31u;
     // every two uints checked as group to see if empty.
-    uint nm = m*16u;
+    uint nm = m*maskAmount;
     bool empty = true;
-    for (uint i = 0u; i < 16u; i++) {
+    for (uint i = 0u; i < maskAmount; i++) {
         if (blockData[nm+i] != 0u) {
             empty = false;
             break;
