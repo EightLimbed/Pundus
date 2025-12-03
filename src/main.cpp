@@ -132,6 +132,22 @@ int main() {
         processInput(window);
         glBindImageTexture(0, prePassTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
+        // block editing.
+        if (Player.click != 0) {
+            blockEditShader.use();
+            blockEditShader.setBool("click", (Player.click==1));
+            blockEditShader.setFloat("pPosX", Player.posX);
+            blockEditShader.setFloat("pPosY", Player.posY);
+            blockEditShader.setFloat("pPosZ", Player.posZ);
+            blockEditShader.setFloat("pDirX", Player.dirX);
+            blockEditShader.setFloat("pDirY", Player.dirY);
+            blockEditShader.setFloat("pDirZ", Player.dirZ);
+            
+            glDispatchCompute(1, 1, 1);
+            glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+            //std::cout<<(Player.click)<<std::endl;
+        }
+
         // low res pass.
         lowResShader.use();
         lowResShader.setFloat("pPosX", Player.posX);

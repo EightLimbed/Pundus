@@ -23,18 +23,53 @@ uniform float pDirZ;
 uniform int screenWidth = 800;
 uniform int screenHeight = 600;
 
+// input
+uniform bool click;
+
 // time
 uniform float iTime;
 
 // constants
 const float passRes = 4.0;
 const float renderDist = 1024.0;
+const uint maskAmount = uint(passRes*passRes*passRes)/4u;
 
-// chunk mask getter
-bool checkChunk(uint m) {
-    uint idx = m >> 5u; // which 32-bit term (divide by 32)
-    uint bit = m & 31u; // which bit in that term (mod 32 or whatever)
-    return ((occuMask[idx] >> bit) & 1u) == 0u;
+// block data getter
+uint getData(uint m) {
+    uint idx = m >> 2u; // divide by 4
+    uint bit = (m & 3u) * 8u; // which byte in that uint
+    return (blockData[idx] >> bit) & 0xFFu;
+}
+
+void setData(uint m, uint value) { // pass
+    uint i = m >> 2u;
+    uint byteShift = (m & 3u) * 8u;
+
+    uint clearMask = ~(0xFFu << byteShift);
+    uint insert = (value & 0xFFu) << byteShift;
+
+    atomicAnd(blockData[i], clearMask);
+    atomicOr(blockData[i], insert);
+}
+
+void recalcMask(uint m) { // pass chunk/mask index (cm) in to recalculate
+    // indexing for bitpacking
+    uint idx = m >> 5u; 
+    uint bit = m & 31u;
+    // every two uints checked as group to see if empty.
+    uint nm = m*maskAmount;
+    bool empty = true;
+    for (uint i = 0u; i < maskAmount; i++) {
+        if (blockData[nm+i] != 0u) {
+            empty = false;
+            break;
+        }
+    }
+    if (empty) {
+        atomicOr(occuMask[idx], 1u << bit);
+    } else {
+        atomicAnd(occuMask[idx], ~(1u << bit));
+    }
 }
 
 // morton encoding/decoding
@@ -61,11 +96,10 @@ vec3 getRayDir(vec2 fragCoord, vec2 res, vec3 lookAt, float zoom) {
 }
 
 void main() {
-    //return;
     // camera setup.
-    vec3 ro = vec3(pPosX,pPosY,pPosZ)/passRes;
+    vec3 ro = vec3(pPosX,pPosY,pPosZ);
     vec3 rd = vec3(pDirX, pDirY, pDirZ);
-    
+
     // voxel space setup.
     ivec3 stride = ivec3(sign(rd));
     // inverse of rd, made to be non 0.
@@ -79,34 +113,50 @@ void main() {
     bound.z = (rd.z > 0.0) ? (float(vp.z) + 1.0 - ro.z) : (ro.z - float(vp.z));
 
     vec3 tMax = bound * dr; // how far to first voxel boundary per axis.
-    float t;
+    ivec3 normal;
 
-    for (int i = 0; i < 10000; i++) {
+    if (tMax.x <= tMax.y && tMax.x <= tMax.z) {
+        normal = ivec3(stride.x,0,0);
+	} else if (tMax.y <= tMax.z) {
+        normal = ivec3(0,stride.y,0);
+	} else {
+        normal = ivec3(0,0,stride.z);
+    }
 
-        t = length(vp-ro)*passRes;
-        if (t > renderDist) {
-            imageStore(prePass, fragCoord, vec4(t,0.0,0.0,0.0));
-            return;
+    for (int i = 0; i < 128; i++) {
+
+        uint m = morton3D(vp);
+        uint cm = morton3D(ivec3(floor(vec3(vp)/passRes))) % 16777216;
+        if (getData(m) != 0u) {
+            // breaking
+            if (click) {
+                setData(m, 0u);
+                recalcMask(cm);
+                return;
+            // placing
+            } else {
+                // recalculate with normal offset.
+                m = morton3D(vp-normal);
+                cm = morton3D(ivec3(floor(vec3(vp-normal)/passRes))) % 16777216;
+                setData(m, 2u);
+                recalcMask(cm);
+                return;
+            }
         }
-
-        if (checkChunk(morton3D(vp) % 16777216)) {
-            imageStore(prePass, fragCoord, vec4(t,0.0,0.0,1.0));
-            return;
-        }
-
-        // voxel-level DDA, steps chunk distance when chunk is empty.
 
 		if (tMax.x <= tMax.y && tMax.x <= tMax.z) { // X is closest
 			vp.x += stride.x;
             tMax.x += dr.x;
+            normal = ivec3(stride.x,0,0);
 		} else if (tMax.y <= tMax.z) {             // Y is closest
 			vp.y += stride.y;
             tMax.y += dr.y;
+            normal = ivec3(0,stride.y,0);
 		} else {                                  // Z is closest
 			vp.z += stride.z;
             tMax.z += dr.z;
+            normal = ivec3(0,0,stride.z);
 		}
 
 	}
-    imageStore(prePass, fragCoord, vec4(t,0.0,0.0,0.0));
 }

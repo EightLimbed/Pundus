@@ -140,6 +140,7 @@ void main() {
             float percent = t/float(renderDist);
             float atten = percent*percent*percent*percent*percent;
             FragColor = vec4(shaded * (1.0 - atten) + atten * colors[3], 1.0);
+            FragColor += imageLoad(prePass, texel).y;
             return;
         }
         
