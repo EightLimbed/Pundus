@@ -30,7 +30,7 @@ uniform float iTime;
 // constants
 const float passRes = 4.0;
 const vec3 colors[5] = {vec3(0.1,0.7,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(0.4,0.6,1.0), vec3(1.0)};
-const float renderDist = 1024.0;
+const float renderDist = 2048.0;
 const ivec2 nOffsets[4] = {ivec2(0,1), ivec2(0,-1), ivec2(1,0), ivec2(-1,0)};
 
 // block data getter

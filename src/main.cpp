@@ -119,6 +119,7 @@ int main() {
     // render loop
     float deltaTime = 0.0f;
     float lastTime = 0.0f;
+    int lastClick = 0;
 
     while (!glfwWindowShouldClose(window))
     {
@@ -133,7 +134,8 @@ int main() {
         glBindImageTexture(0, prePassTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
         // block editing.
-        if (Player.click != 0) {
+        
+        if (Player.click != 0 && lastClick == 0) {
             blockEditShader.use();
             blockEditShader.setBool("click", (Player.click==1));
             blockEditShader.setFloat("pPosX", Player.posX);
@@ -143,10 +145,11 @@ int main() {
             blockEditShader.setFloat("pDirY", Player.dirY);
             blockEditShader.setFloat("pDirZ", Player.dirZ);
             
-            glDispatchCompute(1, 1, 1);
+            glDispatchCompute(16, 16, 16);
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             //std::cout<<(Player.click)<<std::endl;
         }
+        lastClick = Player.click;
 
         // low res pass.
         lowResShader.use();

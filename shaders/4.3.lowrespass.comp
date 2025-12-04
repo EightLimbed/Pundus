@@ -28,7 +28,7 @@ uniform float iTime;
 
 // constants
 const float passRes = 4.0;
-const float renderDist = 1024.0;
+const float renderDist = 2048.0;
 
 // chunk mask getter
 bool checkChunk(uint m) {
