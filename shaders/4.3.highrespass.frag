@@ -30,7 +30,7 @@ uniform float iTime;
 // constants
 const float passRes = 4.0;
 const vec3 colors[5] = {vec3(0.1,0.7,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(0.4,0.6,1.0), vec3(1.0)};
-const float renderDist = 2048.0;
+const float renderDist = 1024.0;
 const ivec2 nOffsets[4] = {ivec2(0,1), ivec2(0,-1), ivec2(1,0), ivec2(-1,0)};
 
 // block data getter
@@ -72,39 +72,34 @@ vec3 getRayDir(vec2 fragCoord, vec2 res, vec3 lookAt, float zoom) {
 
 // main raymarching loop.
 void main() {
+
+    ivec2 preSize = imageSize(prePass);
+    ivec2 texel = ivec2(gl_FragCoord.xy) / int(passRes); // integer division, gets image coordinate.
+    float dist = imageLoad(prePass, texel).x; // big distance.
+    
+    // prevents skipping with neighbor distances.
+    for (int i = 0; i < 4; i++) {
+        float nDist = imageLoad(prePass, texel+nOffsets[i]).x;
+        if (nDist < dist) {
+            dist = nDist;
+            break;
+        }
+    }
+
+    //FragColor.x = dist/1024.0;
+    //return;
+    // makes sure no close neighbors of dist are hits. corners seem unnecessary, but I might as well.
+    dist = max(dist-8.0, 0.0); // safety
+    
     FragColor = vec4(colors[3],1.0); // background color.
+    if (dist > renderDist) return;
 
     // camera setup.
     vec3 lookAt = vec3(pDirX, pDirY, pDirZ);
     vec3 rd = getRayDir(gl_FragCoord.xy, vec2(screenWidth,screenHeight), lookAt, 1.0);
 
-    vec3 ro = vec3(pPosX,pPosY,pPosZ);
-
-    // prepass skipping if good.
-    float dist;
-    ivec2 texel;
-    uint cm = morton3D(ivec3(floor(vec3(ro)/passRes))) % 16777216;
-    if (!checkChunk(cm)) {
-        ivec2 preSize = imageSize(prePass);
-        texel = ivec2(gl_FragCoord.xy) / int(passRes); // integer division, gets image coordinate.
-        dist = imageLoad(prePass, texel).x; // big distance.
-        
-        // prevents skipping with neighbor distances.
-        for (int i = 0; i < 4; i++) {
-            float nDist = imageLoad(prePass, texel+nOffsets[i]).x;
-            if (nDist < dist) {
-                dist = nDist;
-                break;
-            }
-        }
-
-        //FragColor.x = dist/1024.0;
-        //return;
-        // makes sure no close neighbors of dist are hits. corners seem unnecessary, but I might as well.
-        dist = max(dist-8.0, 0.0); // safety.
-        if (dist > renderDist) return; // early out.
-        ro += rd * dist; // advance to skipped voxel.
-    }
+    vec3 ro = vec3(pPosX,pPosY,pPosZ)+ rd*dist;
+    vec3 normal = vec3(0.0);
     
     // voxel space setup.
     ivec3 stride = ivec3(sign(rd));
@@ -121,7 +116,6 @@ void main() {
 
     vec3 tMax = bound * dr; // how far to first voxel boundary per axis.
 
-    vec3 normal;
     // pre step normal calculations
     if (tMax.x <= tMax.y && tMax.x <= tMax.z) {
             normal = vec3(stride.x,0.0,0.0);
