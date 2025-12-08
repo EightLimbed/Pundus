@@ -135,7 +135,7 @@ int main() {
 
         // block editing.
         
-        if (Player.click != 0 && lastClick == 0) {
+        if (Player.click != 0 ) {
             blockEditShader.use();
             blockEditShader.setBool("click", (Player.click==1));
             blockEditShader.setFloat("pPosX", Player.posX);
