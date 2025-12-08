@@ -76,7 +76,7 @@ void main() {
 
     ivec2 preSize = imageSize(prePass);
     ivec2 texel = ivec2(gl_FragCoord.xy) / int(passRes); // integer division, gets image coordinate.
-    float dist = imageLoad(prePass, texel).x; // big distance.
+    float dist = imageLoad(prePass, texel).x;
     
     // prevents skipping with neighbor distances.
     for (int i = 0; i < 4; i++) {

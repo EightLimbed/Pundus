@@ -92,11 +92,10 @@ int main() {
     glBufferData(GL_SHADER_STORAGE_BUFFER, SSBO0_SIZE, nullptr, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo0); // very important, don't forget, deleted accidentally once and could not figure out what was going wrong for like an hour.
 
-    // prepass texture (prepass depth data)
-    //GLuint prePassTex;
+    // prepass texture (prepass depth data) combined with shadow map texture
     glGenTextures(1, &prePassTex);
     glBindTexture(GL_TEXTURE_2D, prePassTex);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, PRE_WIDTH, PRE_HEIGHT);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, PRE_WIDTH, PRE_HEIGHT*2);
 
     // generate terrain
     terrainShader.use();
@@ -224,7 +223,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     highRes.setInt("screenHeight", height);
 
     glViewport(0, 0, width, height); // resize viewport
-    glGenTextures(1, &prePassTex); // resize prepass image
+    glGenTextures(1, &prePassTex); // resize prepass and lighting image
     glBindTexture(GL_TEXTURE_2D, prePassTex);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, PRE_WIDTH, PRE_HEIGHT);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, PRE_WIDTH, PRE_HEIGHT*2);
 }
