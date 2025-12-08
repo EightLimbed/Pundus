@@ -118,10 +118,19 @@ void main() {
     float height = ((noise2D(vec2(id.x,id.z)/1024.0) + 1.0) * 256.0 + (noise2D(vec2(id.z,id.x)/256.0) + 1.0) * 24.0);
     uint data = 0;
     float grass = seededRandom(vec2(id.x,id.z))*4.0;
+    float monolith = seededRandom(floor(vec2(id.x,id.z)/32.0))*128.0;
+
+    if (monolith > 120.0) {
+        height = 512.0;
+        if (float(id.y) < height && id.y != 0) {
+            setData(m, 6);
+            return;
+        }
+    }
     if (grass > 3.0) height += grass;
     if (float(id.y) < height) {
         if (id.y == 0) data = (height > 400.0) ? 7 : 8; // clouds on bottom
-        else if (float(id.y) >= height-1-grass) (grass > 3.0) ? (grass > 3.8 && id.y >= height-1) ? (grass > 3.9) ? data = 3 : data = 4 : data = 2 : data = 1; //grass colors+flowers
+        else if (float(id.y) >= height-1-grass) (grass > 3.0) ? (grass > 3.9 && id.y >= height-1) ? (grass > 3.95) ? data = 3 : data = 4 : data = 2 : data = 1; //grass colors+flowers
         else if (float(id.y) >= height-10-grass) data = 5;
         else data = 6;
     }
