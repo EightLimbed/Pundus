@@ -29,7 +29,8 @@ uniform float iTime;
 
 // constants
 const float passRes = 4.0;
-const vec3 colors[6] = {vec3(0.1,0.7,0.1), vec3(0.1,0.8,0.0), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(0.4,0.6,1.0), vec3(1.0)};
+const vec3 colors[8] = {vec3(0.1,0.7,0.1), vec3(0.1,0.8,0.0), vec3(1.0,0.3,0.5), vec3(1.0,0.5,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(1.0), vec3(0.4,0.6,1.0)};
+const int colorLen = colors.length()-1;
 const float renderDist = 1600.0;
 const ivec2 nOffsets[4] = {ivec2(0,1), ivec2(0,-1), ivec2(1,0), ivec2(-1,0)};
 
@@ -91,7 +92,7 @@ void main() {
     // makes sure no close neighbors of dist are hits. corners seem unnecessary, but I might as well.
     dist = max(dist-8.0, 0.0); // safety
     
-    FragColor = vec4(colors[4],1.0); // background color.
+    FragColor = vec4(colors[colorLen],1.0); // background color.
     if (dist > renderDist) return;
 
     // camera setup.
@@ -135,11 +136,11 @@ void main() {
         uint data = getData(m);
         if (data > 0u) {
             vec3 c = colors[data-1]; // -1 to go to 0 in array when 0 is air.
-            vec3 shaded = c-((data <5) ? (dot(normal, normalize(vp-vec3(500.0,1000.0,0.0))))*0.3 : 0.0); // normal shading.
+            vec3 shaded = c-((data < colorLen) ? (dot(normal, normalize(vp-vec3(500.0,1000.0,0.0))))*0.3 : 0.0); // normal shading.
             // apply distance fog.
             float percent = t/float(renderDist);
             float atten = percent*percent*percent*percent*percent;
-            FragColor = vec4(shaded * (1.0 - atten) + atten * colors[4], 1.0);
+            FragColor = vec4(shaded * (1.0 - atten) + atten * colors[colorLen], 1.0);
             return;
         }
         

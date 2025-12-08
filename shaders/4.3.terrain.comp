@@ -120,10 +120,10 @@ void main() {
     float grass = seededRandom(vec2(id.x,id.z))*4.0;
     if (grass > 3.0) height += grass;
     if (float(id.y) < height) {
-        if (id.y == 0) data = (height > 400.0) ? 6 : 5; // clouds on bottom
-        else if (float(id.y) >= height-1-grass) (grass > 3.0) ? data = 2 : data = 1;
-        else if (float(id.y) >= height-10-grass) data = 3;
-        else data = 4;
+        if (id.y == 0) data = (height > 400.0) ? 7 : 8; // clouds on bottom
+        else if (float(id.y) >= height-1-grass) (grass > 3.0) ? (grass > 3.8 && id.y >= height-1) ? (grass > 3.9) ? data = 3 : data = 4 : data = 2 : data = 1; //grass colors+flowers
+        else if (float(id.y) >= height-10-grass) data = 5;
+        else data = 6;
     }
 
     setData(m, data); // sets voxel to a value proportional to height if within terrain
