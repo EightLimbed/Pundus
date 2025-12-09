@@ -31,7 +31,7 @@ uniform float iTime;
 const float passRes = 4.0;
 const vec3 colors[8] = {vec3(0.1,0.7,0.1), vec3(0.1,0.8,0.0), vec3(1.0,0.3,0.5), vec3(1.0,0.5,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(1.0), vec3(0.4,0.6,1.0)};
 const int colorLen = colors.length()-1;
-const float renderDist = 1600.0;
+const float renderDist = 1024.0;
 const ivec2 nOffsets[4] = {ivec2(0,1), ivec2(0,-1), ivec2(1,0), ivec2(-1,0)};
 
 // block data getter
@@ -71,19 +71,19 @@ vec3 getRayDir(vec2 fragCoord, vec2 res, vec3 lookAt, float zoom) {
     return normalize(f + zoom * (uv.x*r + uv.y*u));
 }
 
-// main raymarching loop.
+// main raymarching loop. get rid of normals here when lighting working.
 void main() {
 
     ivec2 preSize = imageSize(prePass);
     ivec2 texel = ivec2(gl_FragCoord.xy) / int(passRes); // integer division, gets image coordinate.
-    float dist = imageLoad(prePass, texel).x;
+    float dist = imageLoad(prePass, texel).w;
     
     // prevents skipping with neighbor distances.
     for (int i = 0; i < 4; i++) {
-        float nDist = imageLoad(prePass, texel+nOffsets[i]).x;
+        float nDist = imageLoad(prePass, texel+nOffsets[i]).w;
         if (nDist < dist) {
             dist = nDist;
-            break;
+            //break;
         }
     }
 
@@ -100,8 +100,7 @@ void main() {
     vec3 rd = getRayDir(gl_FragCoord.xy, vec2(screenWidth,screenHeight), lookAt, 1.0);
 
     vec3 ro = vec3(pPosX,pPosY,pPosZ)+ rd*dist;
-    vec3 normal = vec3(0.0);
-    
+
     // voxel space setup.
     ivec3 stride = ivec3(sign(rd));
     // inverse of rd, made to be non 0.
@@ -118,6 +117,7 @@ void main() {
     vec3 tMax = bound * dr; // how far to first voxel boundary per axis.
 
     // pre step normal calculations
+    vec3 normal;
     if (tMax.x <= tMax.y && tMax.x <= tMax.z) {
             normal = vec3(stride.x,0.0,0.0);
 		} else if (tMax.y <= tMax.z) {
@@ -127,10 +127,8 @@ void main() {
     }
 
     for (int i = 0; i < 10000; i++) {
-
-        float t = length(ro-vp)+dist;
+        float t = distance(ro,vp)+dist;
         if (t > renderDist) return; // no artifact
-
         // check voxel
         uint m = morton3D(vp);
         uint data = getData(m);

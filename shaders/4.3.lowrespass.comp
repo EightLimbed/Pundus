@@ -28,7 +28,7 @@ uniform float iTime;
 
 // constants
 const float passRes = 4.0;
-const float renderDist = 1600.0;
+const float renderDist = 1024.0;
 
 // chunk mask getter
 bool checkChunk(uint m) {
@@ -81,18 +81,30 @@ void main() {
     bound.z = (rd.z > 0.0) ? (float(vp.z) + 1.0 - ro.z) : (ro.z - float(vp.z));
 
     vec3 tMax = bound * dr; // how far to first voxel boundary per axis.
-    float t;
+
+    // pre step normal calculations.
+    vec3 normal;
+    if (tMax.x <= tMax.y && tMax.x <= tMax.z) {
+            normal = vec3(stride.x,0.0,0.0);
+		} else if (tMax.y <= tMax.z) {
+            normal = vec3(0.0,stride.y,0.0);
+		} else {
+            normal = vec3(0.0,0.0,stride.z);
+    }
+
+    float t; // distance value.
 
     for (int i = 0; i < 10000; i++) {
 
-        t = length(vp-ro)*passRes;
-        if (t > renderDist) {
-            imageStore(prePass, fragCoord, vec4(t,0.0,0.0,0.0));
+        vec3 vd = (vp-ro)*passRes;
+        t = dot(vd,vd);
+        if (t > renderDist*renderDist) {
+            imageStore(prePass, fragCoord, vec4(normal,sqrt(t)));
             return;
         }
 
         if (checkChunk(morton3D(vp) % 16777216)) {
-            imageStore(prePass, fragCoord, vec4(t,0.0,0.0,1.0));
+            imageStore(prePass, fragCoord, vec4(normal,sqrt(t)));
             return;
         }
 
@@ -101,14 +113,17 @@ void main() {
 		if (tMax.x <= tMax.y && tMax.x <= tMax.z) { // X is closest
 			vp.x += stride.x;
             tMax.x += dr.x;
+            normal = vec3(stride.x,0.0,0.0);
 		} else if (tMax.y <= tMax.z) {             // Y is closest
 			vp.y += stride.y;
             tMax.y += dr.y;
+            normal = vec3(0.0,stride.y,0.0);
 		} else {                                  // Z is closest
 			vp.z += stride.z;
             tMax.z += dr.z;
+            normal = vec3(0.0,0.0,stride.z);
 		}
 
 	}
-    imageStore(prePass, fragCoord, vec4(t,0.0,0.0,0.0));
+    imageStore(prePass, fragCoord, vec4(normal,sqrt(t)));
 }
