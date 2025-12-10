@@ -7,8 +7,12 @@ layout(std430, binding = 0) buffer BlockData {
     uint blockData[];
 };
 
-layout(rgba32f, binding=0) uniform image2D lightPrePass; // prepass has lighting data on bottom, add value to Y to offset
+layout(rgba32f, binding=0) uniform image2D prePass; // prepass has lighting data on bottom, add value to Y to offset
 
+// player position
+uniform float pPosX;
+uniform float pPosY;
+uniform float pPosZ;
 
 // player direction
 uniform float pDirX;
@@ -38,6 +42,27 @@ float seededRandom(vec2 co) {
     return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
 }
 
+// rotation matrices for light rays, yoinked ts from stack overflow.
+mat3 basisFromNormal(vec3 n) {
+    vec3 h = normalize(abs(n.x) > 0.5 ? vec3(0.0, 1.0, 1.0) : vec3(1.0, 0.0, 1.0));
+    vec3 t = normalize(cross(h, n));
+    vec3 b = cross(n, t);
+    return mat3(t, b, n);
+}
+
+vec3 sampleHemisphere(vec2 u) {
+    float phi = 2.0 * 3.1415 * u.x;
+    float cosTheta = sqrt(1.0 - u.y);
+    float sinTheta = sqrt(u.y);
+    return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
+}
+
+vec3 randomHemisphereDirection(vec3 normal, vec2 rand2) {
+    mat3 basis = basisFromNormal(normal);
+    vec3 localDir = sampleHemisphere(rand2);
+    return normalize(basis * localDir);
+}
+
 // morton encoding/decoding
 uint part1by2(uint x) {
     x &= 0x000003FFu;
@@ -63,24 +88,45 @@ vec3 getRayDir(vec2 fragCoord, vec2 res, vec3 lookAt, float zoom) {
 
 // main raymarching loop.
 void main() {
+    // gets fragment coordinates
     ivec2 fragCoord = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 preSize = imageSize(prePass);
-    vec4 image = imageLoad(prePass, fragCoord).x;
-    float dist = image.w // big distance.
-    vec3 normal = image.xyz; // normals for offset.
+    ivec2 preSizeOffset = ivec2(0,imageSize(prePass).y/2); // offset to bottom half of prepass, where light is stored.
 
+    //imageStore(prePass, fragCoord+preSizeOffset, vec4(1.0)); // debug light storage.
+    //return;
+
+    // initial voxel position and normals.
+    vec4 lowResData = imageLoad(prePass, fragCoord);
+
+    // last frames lighting data.
+    vec4 lightData = imageLoad(prePass, fragCoord+preSizeOffset);
+
+    // important data from low res pass.
+    float dist = lowResData.w; // distance to first voxel.
+    vec3 normal = lowResData.xyz; // normals for offset.
+
+    // initial voxel position.
     vec3 lookAt = vec3(pDirX, pDirY, pDirZ);
     vec3 rd = getRayDir(fragCoord, vec2(screenWidth,screenHeight)/passRes, lookAt, 1.0);
 
     vec3 ro = vec3(pPosX,pPosY,pPosZ) + rd*dist;
+    ivec3 vp = ivec3(floor(ro)); //starting position.
+
+    // attenuation for light.
+    float attenuation = 1.0;
 
     // marches done amount of time relative to bounces.
-    for (int i = 0; i < bounces; i++) {
-        // recalculate ray direction with random offset.
-        lookAt = normal+normalize(vec3(seededRandom(vp.x,iTime),seededRandom(vp.y,iTime),seededRandom(vp.z,iTime)));
+    for (int l = 0; l < bounces; l++) {
+
+        // recalculate ray direction with random direction offset from normal.
+        vec2 rand = vec2(seededRandom(vec2(vp.x+iTime, vp.y-iTime)),seededRandom(vec2(vp.z+iTime, vp.x-iTime)));
+        lookAt = randomHemisphereDirection(normal, rand);
         rd = getRayDir(fragCoord, vec2(screenWidth,screenHeight)/passRes, lookAt, 1.0);
 
         // voxel space setup.
+        ivec3 stride = ivec3(sign(rd));
+        // inverse of rd, made to be non 0.
+        vec3 dr = 1.0 / max(abs(rd), vec3(1e-6));
         // distance to first voxel boundary.
         vec3 bound;
         bound.x = (rd.x > 0.0) ? (float(vp.x) + 1.0 - ro.x) : (ro.x - float(vp.x));
@@ -89,6 +135,30 @@ void main() {
 
         vec3 tMax = bound * dr; // how far to first voxel boundary per axis.
 
-        for (int i = 0; i < renderDist)
-    } 
+        for (int i = 0; i < 1024; i++) {
+
+            uint m = morton3D(vp);
+            uint data = getData(m);
+            if (data > 0u) { // upon hitting voxel either store light, or attenuate and break.
+                attenuation *= dot(normal, rd);
+                break;
+            }
+
+            if (tMax.x <= tMax.y && tMax.x <= tMax.z) { // X is closest
+                vp.x += stride.x;
+                tMax.x += dr.x;
+                normal = vec3(stride.x,0.0,0.0);
+            } else if (tMax.y <= tMax.z) {             // Y is closest
+                vp.y += stride.y;
+                tMax.y += dr.y;
+                normal = vec3(0.0,stride.y,0.0);
+            } else {                                  // Z is closest
+                vp.z += stride.z;
+                tMax.z += dr.z;
+                normal = vec3(0.0,0.0,stride.z);
+            }
+
+        }
+    }
+    imageStore(prePass, fragCoord+preSizeOffset, vec4(max(attenuation,0.1), lightData.xyz)); // stores current light, and last few frames get shifted over.
 }

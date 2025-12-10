@@ -74,8 +74,13 @@ vec3 getRayDir(vec2 fragCoord, vec2 res, vec3 lookAt, float zoom) {
 // main raymarching loop. get rid of normals here when lighting working.
 void main() {
 
-    ivec2 preSize = imageSize(prePass);
     ivec2 texel = ivec2(gl_FragCoord.xy) / int(passRes); // integer division, gets image coordinate.
+    ivec2 preSizeOffset = ivec2(0,imageSize(prePass).y/2); // offset to bottom half of prepass, where light is stored.
+
+    // light data loading.
+    vec4 l = imageLoad(prePass, texel+preSizeOffset);
+    float light = (l.x+l.y+l.z+l.w)/4.0;
+
     float dist = imageLoad(prePass, texel).w;
     
     // prevents skipping with neighbor distances.
@@ -134,10 +139,10 @@ void main() {
         uint data = getData(m);
         if (data > 0u) {
             vec3 c = colors[data-1]; // -1 to go to 0 in array when 0 is air.
-            vec3 shaded = c-((data < colorLen) ? (dot(normal, normalize(vp-vec3(500.0,1000.0,0.0))))*0.3 : 0.0); // normal shading.
+            vec3 shaded = c*((data < colorLen+1) ? light : 1.0); // normal shading.
             // apply distance fog.
             float percent = t/float(renderDist);
-            float atten = percent*percent*percent*percent*percent;
+            float atten = percent*percent*percent*percent*percent*percent;
             FragColor = vec4(shaded * (1.0 - atten) + atten * colors[colorLen], 1.0);
             return;
         }

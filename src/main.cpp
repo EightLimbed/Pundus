@@ -16,6 +16,7 @@ void processPlayer(PlayerController Player, Shader lowRes, Shader highRes);
 // pointers
 Shader* lowResPtr;
 Shader* highResPtr;
+Shader* lightingPtr;
 
 GLuint coarseFBO; // FBO for low resolution
 GLuint coarseTex; // result of low res pass
@@ -75,9 +76,11 @@ int main() {
     Shader terrainShader("shaders/4.3.terrain.comp");
     Shader terrainMaskShader("shaders/4.3.terrainmask.comp");
     Shader lowResShader("shaders/4.3.lowrespass.comp");
+    Shader lightingShader("shaders/4.3.lighting.comp");
     Shader highResShader("shaders/4.3.screenquad.vert","shaders/4.3.highrespass.frag");
     Shader blockEditShader("shaders/4.3.blockeditor.comp");
     lowResPtr = &lowResShader; // pointer for screen resizing
+    lightingPtr = &lightingShader; // pointer for screen resizing
     highResPtr = &highResShader; // pointer for screen resizing
 
     // vaos need to be bound because of biolerplating shizzle (even if not used)
@@ -165,10 +168,26 @@ int main() {
         // make sure writes are visible to everything else
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 
+        // lighting pass.
+        lightingShader.use();
+        lightingShader.setFloat("pPosX", Player.posX); 
+        lightingShader.setFloat("pPosY", Player.posY);
+        lightingShader.setFloat("pPosZ", Player.posZ);
+        lightingShader.setFloat("pDirX", Player.dirX);
+        lightingShader.setFloat("pDirY", Player.dirY);
+        lightingShader.setFloat("pDirZ", Player.dirZ);
+        lightingShader.setFloat("iTime", currentTime);
+
+        // dispatch lighting compute shader threads, based on thread pool size of 64.
+        glDispatchCompute((PRE_WIDTH+7)/8, (PRE_HEIGHT+7)/8, 1);
+
+        // make sure writes are visible to everything else
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+
         // high res pass.
-        glBindFramebuffer(GL_FRAMEBUFFER, 0); // default framebuffer
+        //glBindFramebuffer(GL_FRAMEBUFFER, 0); // default framebuffer
     
-        glClear(GL_COLOR_BUFFER_BIT);
+        //glClear(GL_COLOR_BUFFER_BIT);
 
         highResShader.use();
         highResShader.setFloat("pPosX", Player.posX);
@@ -212,10 +231,16 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     
     std::cout<<"prepass at: "<<PRE_WIDTH<<", "<<PRE_HEIGHT<<std::endl;
     // make sure the viewport matches the new window dimensions; note that width and height will be significantly larger than specified on retina displays.
+
     Shader lowRes = *lowResPtr; // low res shader resize
-    lowRes.use(); // compute shaders like to be special
+    lowRes.use();
     lowRes.setInt("screenWidth", width);
     lowRes.setInt("screenHeight", height);
+
+    Shader lighting = *lightingPtr; // lighting shader resize
+    lighting.use();
+    lighting.setInt("screenWidth", width);
+    lighting.setInt("screenHeight", height);
 
     Shader highRes = *highResPtr; // high res shader resize
     highRes.use();
