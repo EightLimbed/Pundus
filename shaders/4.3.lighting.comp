@@ -90,7 +90,7 @@ vec3 getRayDir(vec2 fragCoord, vec2 res, vec3 lookAt, float zoom) {
 void main() {
     // gets fragment coordinates
     ivec2 fragCoord = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 preSizeOffset = ivec2(0,imageSize(prePass).y/2); // offset to bottom half of prepass, where light is stored.
+    ivec2 preSizeOffset = ivec2(0,(imageSize(prePass).y)/2); // offset to bottom half of prepass, where light is stored.
 
     //imageStore(prePass, fragCoord+preSizeOffset, vec4(1.0)); // debug light storage.
     //return;
@@ -110,13 +110,13 @@ void main() {
     vec3 rd = getRayDir(fragCoord, vec2(screenWidth,screenHeight)/passRes, lookAt, 1.0);
 
     vec3 ro = vec3(pPosX,pPosY,pPosZ) + rd*dist;
-    ivec3 vp = ivec3(floor(ro)); //starting position.
+    ivec3 vp = ivec3(floor(ro+normal)); //starting position.
 
     // attenuation for light.
     float attenuation = 1.0;
 
     // marches done amount of time relative to bounces.
-    for (int l = 0; l < bounces; l++) {
+    for (int l = 0; l < 128; l++) {
 
         // recalculate ray direction with random direction offset from normal.
         vec2 rand = vec2(seededRandom(vec2(vp.x+iTime, vp.y-iTime)),seededRandom(vec2(vp.z+iTime, vp.x-iTime)));
@@ -135,12 +135,16 @@ void main() {
 
         vec3 tMax = bound * dr; // how far to first voxel boundary per axis.
 
-        for (int i = 0; i < 1024; i++) {
+        for (int i = 0; i < 128; i++) {
 
             uint m = morton3D(vp);
             uint data = getData(m);
+            attenuation -= 0.0078125;
             if (data > 0u) { // upon hitting voxel either store light, or attenuate and break.
-                attenuation *= dot(normal, rd);
+                if (data == 8u) {
+                    imageStore(prePass, fragCoord+preSizeOffset, vec4(max(attenuation,0.0), lightData.xyz)); // stores current light, and last few frames get shifted over.
+                    return;
+                }
                 break;
             }
 
@@ -160,5 +164,5 @@ void main() {
 
         }
     }
-    imageStore(prePass, fragCoord+preSizeOffset, vec4(max(attenuation,0.1), lightData.xyz)); // stores current light, and last few frames get shifted over.
+    imageStore(prePass, fragCoord+preSizeOffset, vec4(max(0.0,0.0), lightData.xyz)); // stores current light, and last few frames get shifted over.
 }

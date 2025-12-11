@@ -75,7 +75,7 @@ vec3 getRayDir(vec2 fragCoord, vec2 res, vec3 lookAt, float zoom) {
 void main() {
 
     ivec2 texel = ivec2(gl_FragCoord.xy) / int(passRes); // integer division, gets image coordinate.
-    ivec2 preSizeOffset = ivec2(0,imageSize(prePass).y/2); // offset to bottom half of prepass, where light is stored.
+    ivec2 preSizeOffset = ivec2(0,(imageSize(prePass).y)/2); // offset to bottom half of prepass, where light is stored.
 
     // light data loading.
     vec4 l = imageLoad(prePass, texel+preSizeOffset);
