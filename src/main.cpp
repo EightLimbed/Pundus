@@ -137,7 +137,7 @@ int main() {
 
         // block editing.
         
-        if (Player.click != 0 ) {
+        if (Player.click != 0 && lastClick != Player.click) {
             blockEditShader.use();
             blockEditShader.setBool("click", (Player.click==1));
             blockEditShader.setFloat("pPosX", Player.posX);
@@ -179,10 +179,10 @@ int main() {
         lightingShader.setFloat("iTime", currentTime);
 
         // dispatch lighting compute shader threads, based on thread pool size of 64.
-        glDispatchCompute((PRE_WIDTH+7)/8, (PRE_HEIGHT+7)/8, 1);
+        //glDispatchCompute((PRE_WIDTH+7)/8, (PRE_HEIGHT+7)/8, 1);
 
         // make sure writes are visible to everything else
-        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+        //glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 
         // high res pass.
         //glBindFramebuffer(GL_FRAMEBUFFER, 0); // default framebuffer

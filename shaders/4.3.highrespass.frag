@@ -71,6 +71,25 @@ vec3 getRayDir(vec2 fragCoord, vec2 res, vec3 lookAt, float zoom) {
     return normalize(f + zoom * (uv.x*r + uv.y*u));
 }
 
+float getLight(ivec3 vp, vec3 ro, vec3 normal) {
+    
+    float attenuation = 0.1;
+    
+    vp += ivec3(abs(normal));
+
+    for (int i = 0; i < 1000; i++) {
+        vp += ivec3(normal);
+        uint m = morton3D(vp);
+        uint data = getData(m);
+        if (data > 0u) {
+            break;
+        }
+        
+        attenuation += 0.01;
+    }
+    return max(attenuation,0.0);
+}
+
 // main raymarching loop. get rid of normals here when lighting working.
 void main() {
 
@@ -78,14 +97,14 @@ void main() {
     ivec2 preSizeOffset = ivec2(0,(imageSize(prePass).y)/2); // offset to bottom half of prepass, where light is stored.
 
     // light data loading.
-    vec4 l = imageLoad(prePass, texel+preSizeOffset);
-    float light = (l.x+l.y+l.z+l.w)/4.0;
+    //vec4 l = imageLoad(prePass, texel+preSizeOffset);
+    //float light = (l.x+l.y+l.z+l.w)*0.25;
 
-    float dist = imageLoad(prePass, texel).w;
+    float dist = imageLoad(prePass, texel).x;
     
     // prevents skipping with neighbor distances.
     for (int i = 0; i < 4; i++) {
-        float nDist = imageLoad(prePass, texel+nOffsets[i]).w;
+        float nDist = imageLoad(prePass, texel+nOffsets[i]).x;
         if (nDist < dist) {
             dist = nDist;
             //break;
@@ -121,14 +140,14 @@ void main() {
 
     vec3 tMax = bound * dr; // how far to first voxel boundary per axis.
 
-    // pre step normal calculations
+    // normals
     vec3 normal;
     if (tMax.x <= tMax.y && tMax.x <= tMax.z) {
-            normal = vec3(stride.x,0.0,0.0);
-		} else if (tMax.y <= tMax.z) {
-            normal = vec3(0.0,stride.y,0.0);
-		} else {
-            normal = vec3(0.0,0.0,stride.z);
+        normal = vec3(stride.x,0.0,0.0);
+	} else if (tMax.y <= tMax.z) {
+        normal = vec3(0.0,stride.y,0.0);
+	} else {
+        normal = vec3(0.0,0.0,stride.z);
     }
 
     for (int i = 0; i < 10000; i++) {
@@ -138,8 +157,9 @@ void main() {
         uint m = morton3D(vp);
         uint data = getData(m);
         if (data > 0u) {
-            vec3 c = colors[data-1]; // -1 to go to 0 in array when 0 is air.
-            vec3 shaded = c*((data < colorLen+1) ? light : 1.0); // normal shading.
+            vec3 c = -normal;//colors[data-1]; // -1 to go to 0 in array when 0 is air.
+            float light = getLight(vp, ro, normal);
+            vec3 shaded = c*((data < colorLen) ? light : 1.0); // shading.
             // apply distance fog.
             float percent = t/float(renderDist);
             float atten = percent*percent*percent*percent*percent*percent;

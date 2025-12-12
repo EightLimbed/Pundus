@@ -141,7 +141,7 @@ void main() {
                 // recalculate with normal offset.
                 m = morton3D(vp-normal-offset);
                 cm = morton3D(ivec3(floor(vec3(vp-normal-offset)/passRes))) % 16777216;
-                setData(m, 8u);
+                setData(m, 4u);
                 recalcMask(cm);
                 return;
             }
