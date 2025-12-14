@@ -73,21 +73,22 @@ vec3 getRayDir(vec2 fragCoord, vec2 res, vec3 lookAt, float zoom) {
 
 float getLight(ivec3 vp, vec3 ro, vec3 normal) {
     
-    float attenuation = 0.1;
-    
-    vp += ivec3(abs(normal));
+    float attenuation = 1.0;
 
-    for (int i = 0; i < 1000; i++) {
-        vp += ivec3(normal);
+    for (int i = 0; i < 256; i++) {
+        vp -= ivec3(normal);
         uint m = morton3D(vp);
         uint data = getData(m);
         if (data > 0u) {
+            if (data == 8u) {
+                attenuation /= 1.5;
+            }
             break;
         }
         
-        attenuation += 0.01;
+        attenuation *= 0.99;
     }
-    return max(attenuation,0.0);
+    return 1.0-attenuation;
 }
 
 // main raymarching loop. get rid of normals here when lighting working.
@@ -157,7 +158,7 @@ void main() {
         uint m = morton3D(vp);
         uint data = getData(m);
         if (data > 0u) {
-            vec3 c = -normal;//colors[data-1]; // -1 to go to 0 in array when 0 is air.
+            vec3 c = colors[data-1]; // -1 to go to 0 in array when 0 is air.
             float light = getLight(vp, ro, normal);
             vec3 shaded = c*((data < colorLen) ? light : 1.0); // shading.
             // apply distance fog.
