@@ -16,7 +16,6 @@ void processPlayer(PlayerController Player, Shader lowRes, Shader highRes);
 // pointers
 Shader* lowResPtr;
 Shader* highResPtr;
-Shader* lightingPtr;
 
 GLuint coarseFBO; // FBO for low resolution
 GLuint coarseTex; // result of low res pass
@@ -76,11 +75,9 @@ int main() {
     Shader terrainShader("shaders/4.3.terrain.comp");
     Shader terrainMaskShader("shaders/4.3.terrainmask.comp");
     Shader lowResShader("shaders/4.3.lowrespass.comp");
-    Shader lightingShader("shaders/4.3.lighting.comp");
     Shader highResShader("shaders/4.3.screenquad.vert","shaders/4.3.highrespass.frag");
     Shader blockEditShader("shaders/4.3.blockeditor.comp");
     lowResPtr = &lowResShader; // pointer for screen resizing
-    lightingPtr = &lightingShader; // pointer for screen resizing
     highResPtr = &highResShader; // pointer for screen resizing
 
     // vaos need to be bound because of biolerplating shizzle (even if not used)
@@ -168,22 +165,6 @@ int main() {
         // make sure writes are visible to everything else
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 
-        // lighting pass.
-        lightingShader.use();
-        lightingShader.setFloat("pPosX", Player.posX); 
-        lightingShader.setFloat("pPosY", Player.posY);
-        lightingShader.setFloat("pPosZ", Player.posZ);
-        lightingShader.setFloat("pDirX", Player.dirX);
-        lightingShader.setFloat("pDirY", Player.dirY);
-        lightingShader.setFloat("pDirZ", Player.dirZ);
-        lightingShader.setFloat("iTime", currentTime);
-
-        // dispatch lighting compute shader threads, based on thread pool size of 64.
-        //glDispatchCompute((PRE_WIDTH+7)/8, (PRE_HEIGHT+7)/8, 1);
-
-        // make sure writes are visible to everything else
-        //glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-
         // high res pass.
         //glBindFramebuffer(GL_FRAMEBUFFER, 0); // default framebuffer
     
@@ -196,6 +177,7 @@ int main() {
         highResShader.setFloat("pDirX", Player.dirX);
         highResShader.setFloat("pDirY", Player.dirY);
         highResShader.setFloat("pDirZ", Player.dirZ);
+        highResShader.setFloat("iTime", currentTime);
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -237,11 +219,6 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     lowRes.setInt("screenWidth", width);
     lowRes.setInt("screenHeight", height);
 
-    Shader lighting = *lightingPtr; // lighting shader resize
-    lighting.use();
-    lighting.setInt("screenWidth", width);
-    lighting.setInt("screenHeight", height);
-
     Shader highRes = *highResPtr; // high res shader resize
     highRes.use();
     highRes.setInt("screenWidth", width);
@@ -250,5 +227,5 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height); // resize viewport
     glGenTextures(1, &prePassTex); // resize prepass and lighting image
     glBindTexture(GL_TEXTURE_2D, prePassTex);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, PRE_WIDTH, PRE_HEIGHT*2);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, PRE_WIDTH, PRE_HEIGHT);
 }

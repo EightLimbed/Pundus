@@ -71,24 +71,45 @@ vec3 getRayDir(vec2 fragCoord, vec2 res, vec3 lookAt, float zoom) {
     return normalize(f + zoom * (uv.x*r + uv.y*u));
 }
 
-float getLight(ivec3 vp, vec3 ro, vec3 normal) {
-    
-    float attenuation = 1.0;
+float getSkyLight(ivec3 vp, vec3 normal, vec3 rd) {
 
+    vec3 ro = vp;
+
+    // voxel space setup.
+    ivec3 stride = ivec3(sign(rd));
+    // inverse of rd, made to be non 0.
+    vec3 dr = 1.0 / max(abs(rd), vec3(1e-6));
+
+    // distance to first voxel boundary.
+    vec3 bound;
+    bound.x = (rd.x > 0.0) ? (float(vp.x) + 1.0 - ro.x) : (ro.x - float(vp.x));
+    bound.y = (rd.y > 0.0) ? (float(vp.y) + 1.0 - ro.y) : (ro.y - float(vp.y));
+    bound.z = (rd.z > 0.0) ? (float(vp.z) + 1.0 - ro.z) : (ro.z - float(vp.z));
+
+    vec3 tMax = bound * dr; // how far to first voxel boundary per axis.
     for (int i = 0; i < 256; i++) {
-        vp -= ivec3(normal);
+    
+        // step
+        if (tMax.x <= tMax.y && tMax.x <= tMax.z) { // X is closest
+			vp.x += stride.x;
+            tMax.x += dr.x;
+		} else if (tMax.y <= tMax.z) {             // Y is closest
+			vp.y += stride.y;
+            tMax.y += dr.y;
+		} else {                                  // Z is closest
+			vp.z += stride.z;
+            tMax.z += dr.z;
+		}
+    
+        // check voxel
         uint m = morton3D(vp);
         uint data = getData(m);
         if (data > 0u) {
-            if (data == 8u) {
-                attenuation /= 1.5;
-            }
-            break;
+            if (data < colorLen) return float(vp.y)/1024.0; // in shadow
         }
-        
-        attenuation *= 0.99;
+    
     }
-    return 1.0-attenuation;
+    return 1.0; // full light
 }
 
 // main raymarching loop. get rid of normals here when lighting working.
@@ -159,7 +180,7 @@ void main() {
         uint data = getData(m);
         if (data > 0u) {
             vec3 c = colors[data-1]; // -1 to go to 0 in array when 0 is air.
-            float light = getLight(vp, ro, normal);
+            float light = getSkyLight(vp-ivec3(normal), normal, vec3(sin(iTime*0.01), cos(iTime*0.01),sin(iTime*0.01))); // light from sun direction.
             vec3 shaded = c*((data < colorLen) ? light : 1.0); // shading.
             // apply distance fog.
             float percent = t/float(renderDist);
