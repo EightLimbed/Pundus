@@ -29,6 +29,7 @@ uniform float iTime;
 
 // constants
 const float passRes = 4.0;
+const float occlusionRadius = 4.0;
 const vec3 colors[8] = {vec3(0.1,0.7,0.1), vec3(0.1,0.8,0.0), vec3(1.0,0.3,0.5), vec3(1.0,0.5,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(1.0), vec3(0.4,0.6,1.0)};
 const int colorLen = colors.length()-1;
 const float renderDist = 1024.0;
@@ -71,6 +72,32 @@ vec3 getRayDir(vec2 fragCoord, vec2 res, vec3 lookAt, float zoom) {
     return normalize(f + zoom * (uv.x*r + uv.y*u));
 }
 
+float getAmbientOcclusion(ivec3 vp, vec3 normal) {
+    float occ = 1.0;
+    float increase = 0.7 / (occlusionRadius*occlusionRadius*occlusionRadius);
+
+    for (int x = 0; x <= int(occlusionRadius); x++) {
+        for (int y = 0; y <= int(occlusionRadius); y++) {
+            for (int z = 0; z <= int(occlusionRadius); z++) {
+
+                ivec3 offset = ivec3(x, y, z)-int(occlusionRadius)/2;
+
+                if (offset == ivec3(0)) continue; // skip center.
+                if (dot(vec3(offset),vec3(offset)) > occlusionRadius*occlusionRadius) continue; // within sphere.
+                if (dot(vec3(offset), normal) < 0.0) continue; // forces sampling only on the normal side.
+
+                uint m = morton3D(vp + offset);
+                uint data = getData(m);
+                if (data > 0u) {
+                    occ -= increase;
+                    //break;
+                }
+            }
+        }
+    }
+    return occ;
+}
+
 float getSkyLight(ivec3 vp, vec3 normal, vec3 rd) {
 
     vec3 ro = vp;
@@ -85,11 +112,11 @@ float getSkyLight(ivec3 vp, vec3 normal, vec3 rd) {
     bound.x = (rd.x > 0.0) ? (float(vp.x) + 1.0 - ro.x) : (ro.x - float(vp.x));
     bound.y = (rd.y > 0.0) ? (float(vp.y) + 1.0 - ro.y) : (ro.y - float(vp.y));
     bound.z = (rd.z > 0.0) ? (float(vp.z) + 1.0 - ro.z) : (ro.z - float(vp.z));
+    if (dot(normal, rd) > 0.0) return 0.2;
 
     vec3 tMax = bound * dr; // how far to first voxel boundary per axis.
     for (int i = 0; i < 256; i++) {
-    
-        // step
+
         if (tMax.x <= tMax.y && tMax.x <= tMax.z) { // X is closest
 			vp.x += stride.x;
             tMax.x += dr.x;
@@ -101,11 +128,11 @@ float getSkyLight(ivec3 vp, vec3 normal, vec3 rd) {
             tMax.z += dr.z;
 		}
     
-        // check voxel
+        // check chunk
         uint m = morton3D(vp);
         uint data = getData(m);
         if (data > 0u) {
-            if (data < colorLen) return float(vp.y)/1024.0; // in shadow
+            if (data < colorLen) return 0.2; // in shadow
         }
     
     }
@@ -180,8 +207,9 @@ void main() {
         uint data = getData(m);
         if (data > 0u) {
             vec3 c = colors[data-1]; // -1 to go to 0 in array when 0 is air.
-            float light = getSkyLight(vp-ivec3(normal), normal, vec3(sin(iTime*0.01), cos(iTime*0.01),sin(iTime*0.01))); // light from sun direction.
-            vec3 shaded = c*((data < colorLen) ? light : 1.0); // shading.
+            float skyLight = getSkyLight(vp-ivec3(normal), normal, vec3(sin(iTime*0.01), cos(iTime*0.01),sin(iTime*0.01))); // light from sun direction.
+            float ambientOcclusion = getAmbientOcclusion(vp, normal);
+            vec3 shaded = c*((data < colorLen) ? (skyLight+ambientOcclusion)*0.5 : 1.0); // shading.
             // apply distance fog.
             float percent = t/float(renderDist);
             float atten = percent*percent*percent*percent*percent*percent;
