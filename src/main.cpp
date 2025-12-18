@@ -144,7 +144,7 @@ int main() {
             blockEditShader.setFloat("pDirY", Player.dirY);
             blockEditShader.setFloat("pDirZ", Player.dirZ);
             
-            glDispatchCompute(16, 16, 16);
+            glDispatchCompute(4, 4, 4);
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             //std::cout<<(Player.click)<<std::endl;
         }

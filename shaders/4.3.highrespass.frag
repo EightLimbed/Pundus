@@ -29,7 +29,8 @@ uniform float iTime;
 
 // constants
 const float passRes = 4.0;
-const float occlusionRadius = 4.0;
+const float occlusionDiameter = 4.0;
+const float occlusionChange = 1.0/(occlusionDiameter*occlusionDiameter*occlusionDiameter*0.5);
 const vec3 colors[8] = {vec3(0.1,0.7,0.1), vec3(0.1,0.8,0.0), vec3(1.0,0.3,0.5), vec3(1.0,0.5,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(1.0), vec3(0.4,0.6,1.0)};
 const int colorLen = colors.length()-1;
 const float renderDist = 1024.0;
@@ -75,7 +76,7 @@ vec3 getRayDir(vec2 fragCoord, vec2 res, vec3 lookAt, float zoom) {
 float getAmbientOcclusion(ivec3 vp, vec3 normal) {
     float occ = 1.0;
     vec3 side = (-abs(normal)*0.5+1.0); // makes range of values that encapsulate sides radius (as a square). Ex: normal of (1,0,0) becomes (0.5,1,1)
-    vec3 sideOffset = -sign(normal+0.5)*side*occlusionRadius; // all adjusted for occlusion radius
+    vec3 sideOffset = -sign(normal+0.5)*side*occlusionDiameter; // all adjusted for occlusion radius
     ivec3 iSideOffset = ivec3(sideOffset);
 
 
@@ -84,14 +85,14 @@ float getAmbientOcclusion(ivec3 vp, vec3 normal) {
             for (int z = min(iSideOffset.z,0); z <= max(iSideOffset.z,0); z++) {
 
                 // offset adjusted for center. Center is calculated to be half of rectangle, without adjusting the already halfed part. Ex: normal of (1,0,0) becomes (0.5,1,1) offset by (0.0,0.5,0.5)
-                ivec3 offset = ivec3(x, y, z)+ivec3((side-0.5)*occlusionRadius-normal); // normal so they only sample starting in empty blocks
+                ivec3 offset = ivec3(x, y, z)+ivec3((side-0.5)*occlusionDiameter-normal); // normal so they only sample starting in empty blocks
 
-                if (dot(vec3(offset),vec3(offset))*2.0 > occlusionRadius*occlusionRadius) continue; // within sphere.
+                if (dot(vec3(offset),vec3(offset))*2.0 > occlusionDiameter*occlusionDiameter) continue; // within sphere.
 
                 uint m = morton3D(vp + offset);
                 uint data = getData(m);
                 if (data > 0u) {
-                    occ *= 0.96;
+                    occ -= occlusionChange;
                     //break;
                 }
             }
