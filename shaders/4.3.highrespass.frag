@@ -29,7 +29,7 @@ uniform float iTime;
 
 // constants
 const float passRes = 4.0;
-const float occlusionRadius = 2.0;
+const float occlusionRadius = 4.0;
 const vec3 colors[8] = {vec3(0.1,0.7,0.1), vec3(0.1,0.8,0.0), vec3(1.0,0.3,0.5), vec3(1.0,0.5,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(1.0), vec3(0.4,0.6,1.0)};
 const int colorLen = colors.length()-1;
 const float renderDist = 1024.0;
@@ -86,12 +86,12 @@ float getAmbientOcclusion(ivec3 vp, vec3 normal) {
                 // offset adjusted for center. Center is calculated to be half of rectangle, without adjusting the already halfed part. Ex: normal of (1,0,0) becomes (0.5,1,1) offset by (0.0,0.5,0.5)
                 ivec3 offset = ivec3(x, y, z)+ivec3((side-0.5)*occlusionRadius-normal); // normal so they only sample starting in empty blocks
 
-                //if (dot(vec3(offset),vec3(offset)) > occlusionRadius*occlusionRadius) continue; // within sphere.
+                if (dot(vec3(offset),vec3(offset))*2.0 > occlusionRadius*occlusionRadius) continue; // within sphere.
 
                 uint m = morton3D(vp + offset);
                 uint data = getData(m);
                 if (data > 0u) {
-                    occ *= 0.95;
+                    occ *= 0.96;
                     //break;
                 }
             }
@@ -212,7 +212,7 @@ void main() {
         if (data > 0u) {
             vec3 c = colors[data-1]; // -1 to go to 0 in array when 0 is air.
             float skyLight = getSkyLight(vp-ivec3(normal), normal, vec3(0.717, 0.717,sin(iTime*0.1))); // light from sun direction.
-            float ambientOcclusion = (t<renderDist*0.5) ? getAmbientOcclusion(vp, normal) : 1.0; // early out.
+            float ambientOcclusion = getAmbientOcclusion(vp, normal); // early out.
             vec3 shaded = c*((data < colorLen) ? skyLight*ambientOcclusion : 1.0); // shading.
             // apply distance fog.
             float percent = t/float(renderDist);
