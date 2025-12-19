@@ -28,13 +28,15 @@ uniform int screenHeight = 600;
 uniform float iTime;
 
 // constants
+const float renderDist = 1024.0;
 const float passRes = 4.0;
 const float occlusionDiameter = 4.0;
-const float occlusionChange = 1.0/(occlusionDiameter*occlusionDiameter*occlusionDiameter*0.5);
 const vec3 colors[8] = {vec3(0.1,0.7,0.1), vec3(0.1,0.8,0.0), vec3(1.0,0.3,0.5), vec3(1.0,0.5,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(1.0), vec3(0.4,0.6,1.0)};
+
+// precomputes
+const ivec2 nOffsets[4] = {ivec2(0,1), ivec2(0,-1), ivec2(1,0), ivec2(-1,0)}; // offsets for low res pass sampling.
 const int colorLen = colors.length()-1;
-const float renderDist = 1024.0;
-const ivec2 nOffsets[4] = {ivec2(0,1), ivec2(0,-1), ivec2(1,0), ivec2(-1,0)};
+const float occlusionChange = 1.0/(occlusionDiameter*occlusionDiameter*occlusionDiameter*0.5); // occlusion increment.
 
 // block data getter
 uint getData(uint m) {
@@ -118,7 +120,7 @@ float getSkyLight(ivec3 vp, vec3 normal, vec3 rd) {
     if (dot(normal, rd) > 0.0) return 0.2;
 
     vec3 tMax = bound * dr; // how far to first voxel boundary per axis.
-    for (int i = 0; i < 256; i++) {
+    for (int i = 0; i < 128; i++) {
 
         if (tMax.x <= tMax.y && tMax.x <= tMax.z) { // X is closest
 			vp.x += stride.x;
@@ -158,20 +160,14 @@ void main() {
     
     // prevents skipping with neighbor distances.
     for (int i = 0; i < 4; i++) {
-        float nDist = imageLoad(prePass, texel+nOffsets[i]).x;
-        if (nDist < dist) {
-            dist = nDist;
-            //break;
-        }
+        dist = min(dist, imageLoad(prePass, texel+nOffsets[i]).x);
     }
 
-    //FragColor.x = dist/1024.0;
-    //return;
-    // makes sure no close neighbors of dist are hits. corners seem unnecessary, but I might as well.
-    dist = max(dist-8.0, 0.0); // safety
-    
     FragColor = vec4(colors[colorLen],1.0); // background color.
     if (dist > renderDist) return;
+
+    dist = max(dist-8.0, 0.0); // safety
+
 
     // camera setup.
     vec3 lookAt = vec3(pDirX, pDirY, pDirZ);
@@ -205,8 +201,10 @@ void main() {
     }
 
     for (int i = 0; i < 10000; i++) {
+
         float t = distance(ro,vp)+dist;
         if (t > renderDist) return; // no artifact
+
         // check voxel
         uint m = morton3D(vp);
         uint data = getData(m);

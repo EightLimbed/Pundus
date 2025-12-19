@@ -20,7 +20,7 @@ Shader* highResPtr;
 GLuint coarseFBO; // FBO for low resolution
 GLuint coarseTex; // result of low res pass
 
-GLuint prePassTex;; // prepass texture
+GLuint prePassTex; // prepass texture
 
 // settings
 unsigned int SCR_WIDTH = 800;
@@ -95,7 +95,8 @@ int main() {
     // prepass texture (prepass depth data) combined with shadow map texture
     glGenTextures(1, &prePassTex);
     glBindTexture(GL_TEXTURE_2D, prePassTex);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, PRE_WIDTH, PRE_HEIGHT*2);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, PRE_WIDTH, PRE_HEIGHT);
+    glBindImageTexture(0, prePassTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
     // generate terrain
     terrainShader.use();
@@ -130,7 +131,6 @@ int main() {
         Player.HandleInputs(window, deltaTime);
         Player.HandleMouseInput(window);
         processInput(window);
-        glBindImageTexture(0, prePassTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
         // block editing.
         
