@@ -80,14 +80,14 @@ float getAmbientOcclusion(ivec3 vp, vec3 normal) {
     vec3 side = (-abs(normal)*0.5+1.0); // makes range of values that encapsulate sides radius (as a square). Ex: normal of (1,0,0) becomes (0.5,1,1)
     vec3 sideOffset = -sign(normal+0.5)*side*occlusionDiameter; // all adjusted for occlusion radius
     ivec3 iSideOffset = ivec3(sideOffset);
-
+    ivec3 center = ivec3((side-0.5)*occlusionDiameter-normal);
 
     for (int x = min(iSideOffset.x,0); x <= max(iSideOffset.x,0); x++) {
         for (int y = min(iSideOffset.y,0); y <= max(iSideOffset.y,0); y++) {
             for (int z = min(iSideOffset.z,0); z <= max(iSideOffset.z,0); z++) {
 
                 // offset adjusted for center. Center is calculated to be half of rectangle, without adjusting the already halfed part. Ex: normal of (1,0,0) becomes (0.5,1,1) offset by (0.0,0.5,0.5)
-                ivec3 offset = ivec3(x, y, z)+ivec3((side-0.5)*occlusionDiameter-normal); // normal so they only sample starting in empty blocks
+                ivec3 offset = ivec3(x, y, z)+center; // normal so they only sample starting in empty blocks
 
                 if (dot(vec3(offset),vec3(offset))*2.0 > occlusionDiameter*occlusionDiameter) continue; // within sphere.
 
@@ -103,22 +103,37 @@ float getAmbientOcclusion(ivec3 vp, vec3 normal) {
     return occ;
 }
 
-float getSkyLight(ivec3 vp, vec3 normal, vec3 rd) {
+float getSkyLight(ivec3 vp, vec3 normal, vec3 rd, vec3 ld) {
 
+    // early return for instant intercept.
+    if (dot(normal, ld) > 0.0) return 0.3;
+
+    // add normal offset to vp.
+    vp -= ivec3(normal);
+
+    // specular.
+    rd.xy = -rd.xy;
+    vec3 halfDir = normalize(-rd + ld);
+
+    float specularStrength = max(dot(normal, -halfDir), 0.0);
+    float specular = pow(specularStrength, 32.0)*2.0;
+
+    // diffuse raymarched.
+    float diffuse = 1.0;
     vec3 ro = vp;
 
     // voxel space setup.
-    ivec3 stride = ivec3(sign(rd));
+    ivec3 stride = ivec3(sign(ld));
     // inverse of rd, made to be non 0.
-    vec3 dr = 1.0 / max(abs(rd), vec3(1e-6));
+    vec3 dr = 1.0 / max(abs(ld), vec3(1e-6));
 
     // distance to first voxel boundary.
     vec3 bound;
-    bound.x = (rd.x > 0.0) ? (float(vp.x) + 1.0 - ro.x) : (ro.x - float(vp.x));
-    bound.y = (rd.y > 0.0) ? (float(vp.y) + 1.0 - ro.y) : (ro.y - float(vp.y));
-    bound.z = (rd.z > 0.0) ? (float(vp.z) + 1.0 - ro.z) : (ro.z - float(vp.z));
-    if (dot(normal, rd) > 0.0) return 0.2;
+    bound.x = (ld.x > 0.0) ? (1.0) : (0.0);
+    bound.y = (ld.y > 0.0) ? (1.0) : (0.0);
+    bound.z = (ld.z > 0.0) ? (1.0) : (0.0);
 
+    
     vec3 tMax = bound * dr; // how far to first voxel boundary per axis.
     for (int i = 0; i < 128; i++) {
 
@@ -137,11 +152,12 @@ float getSkyLight(ivec3 vp, vec3 normal, vec3 rd) {
         uint m = morton3D(vp);
         uint data = getData(m);
         if (data > 0u) {
-            if (data < colorLen) return 0.3; // in shadow
+            if (data < colorLen) diffuse *= 0.9; // in shadow
+            if (diffuse < 0.3) return 0.3+specular;
         }
     
     }
-    return 1.0; // full light
+    return diffuse+specular; // full light
 }
 
 // main raymarching loop. get rid of normals here when lighting working.
@@ -173,7 +189,7 @@ void main() {
     vec3 lookAt = vec3(pDirX, pDirY, pDirZ);
     vec3 rd = getRayDir(gl_FragCoord.xy, vec2(screenWidth,screenHeight), lookAt, 1.0);
 
-    vec3 ro = vec3(pPosX,pPosY,pPosZ)+ rd*dist;
+    vec3 ro = vec3(pPosX,pPosY,pPosZ) + rd*dist;
 
     // voxel space setup.
     ivec3 stride = ivec3(sign(rd));
@@ -210,7 +226,7 @@ void main() {
         uint data = getData(m);
         if (data > 0u) {
             vec3 c = colors[data-1]; // -1 to go to 0 in array when 0 is air.
-            float skyLight = getSkyLight(vp-ivec3(normal), normal, vec3(0.717, 0.717,sin(iTime*0.1))); // light from sun direction.
+            float skyLight = getSkyLight(vp, normal, rd, vec3(cos(1.0*0.5), 0.717,sin(1.0*0.5))); // light from sun direction.
             float ambientOcclusion = getAmbientOcclusion(vp, normal); // early out.
             vec3 shaded = c*((data < colorLen) ? skyLight*ambientOcclusion : 1.0); // shading.
             // apply distance fog.
