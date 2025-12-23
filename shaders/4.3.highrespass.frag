@@ -5,6 +5,11 @@ layout(std430, binding = 0) buffer BlockData {
     uint blockData[];
 };
 
+layout(std430, binding = 1) buffer LightingData {
+    uint AOcells;
+    ivec3 AOoffsets[][6];
+};
+
 out vec4 FragColor;
 
 // positions from coarse prepass
@@ -30,13 +35,11 @@ uniform float iTime;
 // constants
 const float renderDist = 1024.0;
 const float passRes = 4.0;
-const float occlusionDiameter = 4.0;
 const vec3 colors[8] = {vec3(0.1,0.7,0.1), vec3(0.1,0.8,0.0), vec3(1.0,0.3,0.5), vec3(1.0,0.5,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(1.0), vec3(0.4,0.6,1.0)};
 
-// precomputes
+// precompute constants
 const ivec2 nOffsets[4] = {ivec2(0,1), ivec2(0,-1), ivec2(1,0), ivec2(-1,0)}; // offsets for low res pass sampling.
 const int colorLen = colors.length()-1;
-const float occlusionChange = 1.0/(occlusionDiameter*occlusionDiameter*occlusionDiameter*0.5); // occlusion increment.
 
 // block data getter
 uint getData(uint m) {
@@ -77,27 +80,21 @@ vec3 getRayDir(vec2 fragCoord, vec2 res, vec3 lookAt, float zoom) {
 
 float getAmbientOcclusion(ivec3 vp, vec3 normal) {
     float occ = 1.0;
-    vec3 side = (-abs(normal)*0.5+1.0); // makes range of values that encapsulate sides radius (as a square). Ex: normal of (1,0,0) becomes (0.5,1,1)
-    vec3 sideOffset = -sign(normal+0.5)*side*occlusionDiameter; // all adjusted for occlusion radius
-    ivec3 iSideOffset = ivec3(sideOffset);
-    ivec3 center = ivec3((side-0.5)*occlusionDiameter-normal);
+    vp -= ivec3(normal);
+    // face id
+    int face = (normal.x > 0.0) ? 0 : (normal.y > 0.0) ? 1 : (normal.z > 0.0) ? 2 : (normal.x < 0.0) ? 3 : (normal.y < 0.0) ? 4 : 5;
 
-    for (int x = min(iSideOffset.x,0); x <= max(iSideOffset.x,0); x++) {
-        for (int y = min(iSideOffset.y,0); y <= max(iSideOffset.y,0); y++) {
-            for (int z = min(iSideOffset.z,0); z <= max(iSideOffset.z,0); z++) {
+    for (int i = 0; i < AOcells; i++) {
 
-                // offset adjusted for center. Center is calculated to be half of rectangle, without adjusting the already halfed part. Ex: normal of (1,0,0) becomes (0.5,1,1) offset by (0.0,0.5,0.5)
-                ivec3 offset = ivec3(x, y, z)+center; // normal so they only sample starting in empty blocks
+        ivec3 offset = AOoffsets[i][face];
 
-                if (dot(vec3(offset),vec3(offset))*2.0 > occlusionDiameter*occlusionDiameter) continue; // within sphere.
+        //if (dot(vec3(offset),vec3(offset))*2.0 > aoDiameter*aoDiameter) continue; // within sphere.
 
-                uint m = morton3D(vp + offset);
-                uint data = getData(m);
-                if (data > 0u) {
-                    occ -= occlusionChange;
-                    //break;
-                }
-            }
+        uint m = morton3D(vp + offset);
+        uint data = getData(m);
+        if (data > 0u) {
+            occ -= 0.5/AOcells;
+            //break;
         }
     }
     return occ;
@@ -227,8 +224,8 @@ void main() {
         if (data > 0u) {
             vec3 c = colors[data-1]; // -1 to go to 0 in array when 0 is air.
             float skyLight = getSkyLight(vp, normal, rd, vec3(cos(1.0*0.5), 0.717,sin(1.0*0.5))); // light from sun direction.
-            float ambientOcclusion = getAmbientOcclusion(vp, normal); // early out.
-            vec3 shaded = c*((data < colorLen) ? skyLight*ambientOcclusion : 1.0); // shading.
+            float ambientOcclusion = getAmbientOcclusion(vp, normal);
+            vec3 shaded = c*((data < colorLen) ? ambientOcclusion : 1.0); // shading.
             // apply distance fog.
             float percent = t/float(renderDist);
             float atten = percent*percent*percent*percent*percent*percent;

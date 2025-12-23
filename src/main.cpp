@@ -7,6 +7,8 @@
 #include <iostream>
 #include <array>
 #include <string>
+#include <vector>
+#include <cmath>
 
 // functions
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -23,19 +25,22 @@ GLuint coarseTex; // result of low res pass
 GLuint prePassTex; // prepass texture
 
 // settings
-unsigned int SCR_WIDTH = 800;
-unsigned int SCR_HEIGHT = 600;
-unsigned int PASS_RES = 4;
-unsigned int PRE_WIDTH = SCR_WIDTH/PASS_RES;
-unsigned int PRE_HEIGHT = SCR_HEIGHT/PASS_RES;
-
 const uint32_t AXIS_SIZE = 1024;
+const uint32_t PASS_RES = 4;
 const uint32_t NUM_VOXELS = AXIS_SIZE * AXIS_SIZE * AXIS_SIZE;
 const uint32_t NUM_VUINTS = (NUM_VOXELS + 3) / 4; // ceil division, amount of uints total.
 const uint32_t NUM_GUINTS = (NUM_VUINTS)/(PASS_RES*PASS_RES*PASS_RES); // uints per group for low res pass.
 
+unsigned int SCR_WIDTH = 800;
+unsigned int SCR_HEIGHT = 600;
+unsigned int PRE_WIDTH = SCR_WIDTH/PASS_RES;
+unsigned int PRE_HEIGHT = SCR_HEIGHT/PASS_RES;
+unsigned int AO_RADIUS = 3;
+unsigned int AO_CELLS = AO_RADIUS*AO_RADIUS*AO_RADIUS*4;
+
 // sizes
 const size_t SSBO0_SIZE = sizeof(GLuint) * (NUM_VUINTS+NUM_GUINTS);
+const size_t SSBO1_SIZE = sizeof(GLuint) + sizeof(GL_INT_VEC3)*6*AO_CELLS; // cells amount, plus rectangle of 
 
 int main() {
     // glfw: initialize and configure
@@ -77,6 +82,7 @@ int main() {
     Shader lowResShader("shaders/4.3.lowrespass.comp");
     Shader highResShader("shaders/4.3.screenquad.vert","shaders/4.3.highrespass.frag");
     Shader blockEditShader("shaders/4.3.blockeditor.comp");
+    Shader precomputesShader("shaders/4.3.precomputes.comp");
     lowResPtr = &lowResShader; // pointer for screen resizing
     highResPtr = &highResShader; // pointer for screen resizing
 
@@ -97,6 +103,21 @@ int main() {
     glBindTexture(GL_TEXTURE_2D, prePassTex);
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, PRE_WIDTH, PRE_HEIGHT);
     glBindImageTexture(0, prePassTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+    // construct precomputes buffer. currently holds AO cell generation
+    GLuint ssbo1;
+    glGenBuffers(1, &ssbo1);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo1);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, SSBO1_SIZE, nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo1); // very important, don't forget, deleted accidentally once and could not figure out what was going wrong for like an hour.
+
+    // precompute AO hemispheres.
+    precomputesShader.use();
+    precomputesShader.setInt("AOradius",AO_RADIUS);
+    glDispatchCompute(1, 1, 1);
+
+    // make sure writes are visible to everything else
+    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
     // generate terrain
     terrainShader.use();

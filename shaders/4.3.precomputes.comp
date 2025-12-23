@@ -1,0 +1,32 @@
+#version 430 core
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in; // 1 thread is all that is necessary.
+
+layout(std430, binding = 1) buffer LightingData {
+    uint AOcells;
+    ivec3 AOoffsets[][6];
+};
+
+uniform int AOradius;
+
+const ivec3 normals[6] = {ivec3(1,0,0),ivec3(0,1,0),ivec3(0,0,1),ivec3(-1,0,0),ivec3(0,-1,0),ivec3(0,0,-1)};
+
+void main() {
+    AOcells = AOradius*AOradius*AOradius*4;
+    //return;
+    for (int n = 0; n < 6; n++) {
+        ivec3 range = -abs(normals[n])+2; // normal of (-1,0,0) becomes (1,2,2).
+        ivec3 hemisphere = -sign(normals[n]*2+1)*range*AOradius; // normal of (-1,0,0) becomes (3,-6,-6)
+        ivec3 center = (hemisphere + sign(hemisphere)) / 4; // hemisphere (3,-6,-6) of offsets (-1,3,3)
+
+        int i = 0;
+        for (int x = min(hemisphere.x,0); x <= max(hemisphere.x,0); x++) {
+            for (int y = min(hemisphere.y,0); y <= max(hemisphere.y,0); y++) {
+                for (int z = min(hemisphere.z,0); z <= max(hemisphere.z,0); z++) {
+                    AOoffsets[i][n] = ivec3(x, y, z)-center;//-normals[n];
+                    i += 1;
+                }
+            }
+        }
+    }
+}
