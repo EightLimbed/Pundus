@@ -35,8 +35,8 @@ unsigned int SCR_WIDTH = 800;
 unsigned int SCR_HEIGHT = 600;
 unsigned int PRE_WIDTH = SCR_WIDTH/PASS_RES;
 unsigned int PRE_HEIGHT = SCR_HEIGHT/PASS_RES;
-unsigned int AO_RADIUS = 3;
-unsigned int AO_CELLS = AO_RADIUS*AO_RADIUS*AO_RADIUS*4;
+unsigned int AO_DIAMETER = 5;
+unsigned int AO_CELLS = (AO_DIAMETER+1)*(AO_DIAMETER+1)*((AO_DIAMETER+1)/2);
 
 // sizes
 const size_t SSBO0_SIZE = sizeof(GLuint) * (NUM_VUINTS+NUM_GUINTS);
@@ -113,8 +113,12 @@ int main() {
 
     // precompute AO hemispheres.
     precomputesShader.use();
-    precomputesShader.setInt("AOradius",AO_RADIUS);
+    precomputesShader.setInt("AOdiameter",AO_DIAMETER);
     glDispatchCompute(1, 1, 1);
+
+    // sets AOchange in shader.
+    highResShader.use();
+    highResShader.setFloat("AOchange",2.0/float(AO_CELLS));
 
     // make sure writes are visible to everything else
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);

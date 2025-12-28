@@ -5,6 +5,7 @@ layout(std430, binding = 0) buffer BlockData {
     uint blockData[];
 };
 
+// ligthing precompute data
 layout(std430, binding = 1) buffer LightingData {
     uint AOcells;
     ivec3 AOoffsets[][6];
@@ -31,6 +32,8 @@ uniform int screenHeight = 600;
 
 // time
 uniform float iTime;
+
+uniform float AOchange;
 
 // constants
 const float renderDist = 1024.0;
@@ -83,18 +86,15 @@ float getAmbientOcclusion(ivec3 vp, vec3 normal) {
     vp -= ivec3(normal);
     // face id
     int face = (normal.x > 0.0) ? 0 : (normal.y > 0.0) ? 1 : (normal.z > 0.0) ? 2 : (normal.x < 0.0) ? 3 : (normal.y < 0.0) ? 4 : 5;
-
+    
     for (int i = 0; i < AOcells; i++) {
 
         ivec3 offset = AOoffsets[i][face];
 
-        //if (dot(vec3(offset),vec3(offset))*2.0 > aoDiameter*aoDiameter) continue; // within sphere.
-
-        uint m = morton3D(vp + offset);
+        uint m = morton3D(vp - offset);
         uint data = getData(m);
         if (data > 0u) {
-            occ -= 0.5/AOcells;
-            //break;
+            occ -= AOchange;
         }
     }
     return occ;
@@ -228,7 +228,7 @@ void main() {
             vec3 shaded = c*((data < colorLen) ? ambientOcclusion : 1.0); // shading.
             // apply distance fog.
             float percent = t/float(renderDist);
-            float atten = percent*percent*percent*percent*percent*percent;
+            float atten = percent*percent*percent*percent*percent;
             FragColor = vec4(shaded * (1.0 - atten) + atten * colors[colorLen], 1.0);
             return;
         }

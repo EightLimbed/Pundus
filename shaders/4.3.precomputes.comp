@@ -7,26 +7,33 @@ layout(std430, binding = 1) buffer LightingData {
     ivec3 AOoffsets[][6];
 };
 
-uniform int AOradius;
+uniform int AOdiameter;
 
 const ivec3 normals[6] = {ivec3(1,0,0),ivec3(0,1,0),ivec3(0,0,1),ivec3(-1,0,0),ivec3(0,-1,0),ivec3(0,0,-1)};
 
+// TRY SWIZZLING PRECREATED BODY.
 void main() {
-    AOcells = AOradius*AOradius*AOradius*4;
-    //return;
+    AOcells = (AOdiameter+1)*(AOdiameter+1)*((AOdiameter+1)/2);
+    ivec3 cells[];
     for (int n = 0; n < 6; n++) {
-        ivec3 range = -abs(normals[n])+2; // normal of (-1,0,0) becomes (1,2,2).
-        ivec3 hemisphere = -sign(normals[n]*2+1)*range*AOradius; // normal of (-1,0,0) becomes (3,-6,-6)
-        ivec3 center = (hemisphere + sign(hemisphere)) / 4; // hemisphere (3,-6,-6) of offsets (-1,3,3)
-
         int i = 0;
-        for (int x = min(hemisphere.x,0); x <= max(hemisphere.x,0); x++) {
-            for (int y = min(hemisphere.y,0); y <= max(hemisphere.y,0); y++) {
-                for (int z = min(hemisphere.z,0); z <= max(hemisphere.z,0); z++) {
-                    AOoffsets[i][n] = ivec3(x, y, z)-center;//-normals[n];
-                    i += 1;
-                }
-            }
+        for (int x = 0; x < ((AOdiameter+1)/2); x++) {
+        for (int y = 0; y < AOdiameter; y++) {
+        for (int z = 0; z < AOdiameter; z++) {
+            ivec3 p = ivec3(x,y,z)-ivec3(0,AOdiameter/2,AOdiameter/2); // creates position.
+
+            // adds position to offsets if normals conditions are met.
+            if (normals[n].x > 0) p = p;
+            else if (normals[n].y > 0) p = ivec3(p.y,p.x,p.z);
+            else if (normals[n].z > 0) p = ivec3(p.y,p.z,p.x);
+            else if (normals[n].x < 0) p = ivec3(-p.x,p.y,p.z);
+            else if (normals[n].y < 0) p = ivec3(p.y,-p.x,p.z);
+            else p = ivec3(p.y,p.z,-p.x);
+
+            AOoffsets[i++][n] = p;
+        }
+        }
         }
     }
 }
+ 
