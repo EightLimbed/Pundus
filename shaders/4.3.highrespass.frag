@@ -150,7 +150,7 @@ float getSkyLight(ivec3 vp, vec3 normal, vec3 rd, vec3 ld) {
         uint data = getData(m);
         if (data > 0u) {
             if (data < colorLen) diffuse *= 0.9; // in shadow
-            if (diffuse < 0.3) return 0.3+specular;
+            if (diffuse < 0.3) return 0.3;
         }
     
     }
@@ -225,7 +225,7 @@ void main() {
             vec3 c = colors[data-1]; // -1 to go to 0 in array when 0 is air.
             float skyLight = getSkyLight(vp, normal, rd, vec3(cos(1.0*0.5), 0.717,sin(1.0*0.5))); // light from sun direction.
             float ambientOcclusion = getAmbientOcclusion(vp, normal);
-            vec3 shaded = c*((data < colorLen) ? ambientOcclusion : 1.0); // shading.
+            vec3 shaded = c*((data < colorLen) ? ambientOcclusion*skyLight : 1.0); // shading.
             // apply distance fog.
             float percent = t/float(renderDist);
             float atten = percent*percent*percent*percent*percent;
