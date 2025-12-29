@@ -1,8 +1,12 @@
 #version 430 core
 
+struct chunk { // 64^3 chunks
+    uint occuMask[128]; // 1 bit per 64 voxels.
+    uint blockData[65536]; // 8 bits per voxel.
+};
+
 layout(std430, binding = 0) buffer BlockData {
-    uint occuMask[524288];
-    uint blockData[];
+    chunk chunks[];
 };
 
 // ligthing precompute data
@@ -36,26 +40,36 @@ uniform float iTime;
 uniform float AOchange;
 
 // constants
-const float renderDist = 1024.0;
+const float renderDist = 2048.0;
 const float passRes = 4.0;
+const uint chunkVoxels = 64*64*64;
 const vec3 colors[8] = {vec3(0.1,0.7,0.1), vec3(0.1,0.8,0.0), vec3(1.0,0.3,0.5), vec3(1.0,0.5,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(1.0), vec3(0.4,0.6,1.0)};
 
 // precompute constants
 const ivec2 nOffsets[4] = {ivec2(0,1), ivec2(0,-1), ivec2(1,0), ivec2(-1,0)}; // offsets for low res pass sampling.
 const int colorLen = colors.length()-1;
 
+
 // block data getter
 uint getData(uint m) {
-    uint idx = m >> 2u; // divide by 4
-    uint bit = (m & 3u) * 8u; // which byte in that uint
-    return (blockData[idx] >> bit) & 0xFFu;
+    uint chunkIndex = m / chunkVoxels;
+    uint localIndex = m % chunkVoxels;
+
+    uint idx = localIndex >> 2u;
+    uint bit = (localIndex & 3u) * 8u;
+
+    return (chunks[chunkIndex].blockData[idx] >> bit) & 0xFFu;
 }
 
-// chunk mask getter
+// chunk mask getter.
 bool checkChunk(uint m) {
-    uint idx = m >> 5u; // which 32-bit term (divide by 32)
-    uint bit = m & 31u; // which bit in that term (mod 32 or whatever)
-    return ((occuMask[idx] >> bit) & 1u) == 0u;
+    uint chunkIndex = m / chunkVoxels;
+    uint localIndex = m % chunkVoxels;
+
+    uint idx = (localIndex >> 6u) >> 5u; // (voxel / 64) / 32
+    uint bit = (localIndex >> 6u) & 31u; // (voxel / 64) % 32
+
+    return ((chunks[chunkIndex].occuMask[idx] >> bit) & 1u) == 0u;
 }
 
 // morton encoding/decoding
@@ -181,7 +195,6 @@ void main() {
 
     dist = max(dist-8.0, 0.0); // safety
 
-
     // camera setup.
     vec3 lookAt = vec3(pDirX, pDirY, pDirZ);
     vec3 rd = getRayDir(gl_FragCoord.xy, vec2(screenWidth,screenHeight), lookAt, 1.0);
@@ -232,15 +245,6 @@ void main() {
             FragColor = vec4(shaded * (1.0 - atten) + atten * colors[colorLen], 1.0);
             return;
         }
-        
-        //ivec3 cp = ivec3(floor(vec3(vp) / passRes)); // occupancy mask debug
-        //if (checkChunk(morton3D(cp) % 16777216) && posWithin(vec3(vp), vec3(0.0), vec3(1024.0))) {
-            //vec3 c = colors[2]; // -1 to go to 0 in array when 0 is air.
-            //float percent = (float(i)+t)/float(renderDist+2048);
-            //float atten = percent*percent*percent*percent;
-            //FragColor = vec4(c-dot(normal, normalize(vp-vec3(500.0,1000.0,0.0)))*0.3 ,1.0);
-            //return;
-        //}
 
 		if (tMax.x <= tMax.y && tMax.x <= tMax.z) { // X is closest
 			vp.x += stride.x;
