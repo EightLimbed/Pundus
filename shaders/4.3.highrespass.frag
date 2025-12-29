@@ -1,8 +1,8 @@
 #version 430 core
 
-struct chunk { // 64^3 chunks
-    uint occuMask[128]; // 1 bit per 64 voxels.
-    uint blockData[65536]; // 8 bits per voxel.
+struct chunk { // 32^3 chunks
+    uint occuMask[16]; // 1 bit per 64 voxels.
+    uint blockData[8192]; // 8 bits per voxel.
 };
 
 layout(std430, binding = 0) buffer BlockData {
@@ -42,7 +42,7 @@ uniform float AOchange;
 // constants
 const float renderDist = 1024.0;
 const float passRes = 4.0;
-const uint chunkVoxels = 64*64*64;
+const uint chunkVoxels = 32*32*32;
 const vec3 colors[8] = {vec3(0.1,0.7,0.1), vec3(0.1,0.8,0.0), vec3(1.0,0.3,0.5), vec3(1.0,0.5,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(1.0), vec3(0.4,0.6,1.0)};
 
 // precompute constants

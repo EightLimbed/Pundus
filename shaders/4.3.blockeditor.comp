@@ -3,8 +3,8 @@
 layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in; // 64 local threads is apparently sweet spot
 
 struct chunk { // 64^3 chunks
-    uint occuMask[128]; // 1 bit per 64 voxels.
-    uint blockData[65536]; // 8 bits per voxel.
+    uint occuMask[16]; // 1 bit per 64 voxels.
+    uint blockData[8192]; // 8 bits per voxel.
 };
 
 layout(std430, binding = 0) buffer BlockData {
@@ -37,7 +37,7 @@ uniform float iTime;
 // constants
 const float passRes = 4.0;
 const uint maskAmount = uint(passRes*passRes*passRes)/4u;
-const uint chunkVoxels = 64*64*64;
+const uint chunkVoxels = 32*32*32;
 
 // block data getter
 uint getData(uint m) {

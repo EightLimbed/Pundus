@@ -2,9 +2,9 @@
 
 layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in; // 64 local threads is apparently sweet spot
 
-struct chunk { // 64^3 chunks
-    uint occuMask[128]; // 1 bit per 64 voxels.
-    uint blockData[65536]; // 8 bits per voxel.
+struct chunk { // 32^3 chunks
+    uint occuMask[16]; // 1 bit per 64 voxels.
+    uint blockData[8192]; // 8 bits per voxel.
 };
 
 layout(std430, binding = 0) buffer BlockData {
@@ -12,7 +12,7 @@ layout(std430, binding = 0) buffer BlockData {
 };
 
 // constants.
-const uint chunkVoxels = 64*64*64;
+const uint chunkVoxels = 32*32*32;
 
 // helper functions
 vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
