@@ -40,7 +40,7 @@ uniform float iTime;
 uniform float AOchange;
 
 // constants
-const float renderDist = 2048.0;
+const float renderDist = 1024.0;
 const float passRes = 4.0;
 const uint chunkVoxels = 64*64*64;
 const vec3 colors[8] = {vec3(0.1,0.7,0.1), vec3(0.1,0.8,0.0), vec3(1.0,0.3,0.5), vec3(1.0,0.5,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(1.0), vec3(0.4,0.6,1.0)};
@@ -115,7 +115,6 @@ float getAmbientOcclusion(ivec3 vp, vec3 normal) {
 }
 
 float getSkyLight(ivec3 vp, vec3 normal, vec3 rd, vec3 ld) {
-
     // early return for instant intercept.
     if (dot(normal, ld) > 0.0) return 0.3;
 

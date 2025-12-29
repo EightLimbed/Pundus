@@ -32,7 +32,7 @@ uniform float iTime;
 
 // constants
 const float passRes = 4.0;
-const float renderDist = 2048.0;
+const float renderDist = 1024.0;
 const uint chunkVoxels = 64*64*64;
 
 // chunk mask getter.
