@@ -25,7 +25,7 @@ GLuint coarseTex; // result of low res pass
 GLuint prePassTex; // prepass texture
 
 // settings
-const uint32_t AXIS_SIZE = 1024;
+const uint32_t AXIS_SIZE = 1023;
 const uint32_t PASS_RES = 4;
 const uint32_t NUM_VOXELS = AXIS_SIZE * AXIS_SIZE * AXIS_SIZE;
 const uint32_t NUM_VUINTS = (NUM_VOXELS + 3) / 4; // ceil division, amount of uints total.
@@ -39,8 +39,9 @@ unsigned int AO_DIAMETER = 5;
 unsigned int AO_CELLS = (AO_DIAMETER+1)*(AO_DIAMETER+1)*((AO_DIAMETER+1)/2);
 
 // sizes
-const size_t SSBO0_SIZE = sizeof(GLuint) * (NUM_VUINTS+NUM_GUINTS);
-const size_t SSBO1_SIZE = sizeof(GLuint) + sizeof(GL_INT_VEC3)*6*AO_CELLS; // cells amount, plus rectangle of 
+const size_t SSBO0_SIZE = sizeof(GLuint) * (NUM_VUINTS);
+const size_t SSBO1_SIZE = sizeof(GLuint) * (NUM_GUINTS);
+const size_t SSBO2_SIZE = sizeof(GLuint) + sizeof(GL_INT_VEC3)*6*AO_CELLS; // cells amount, plus rectangle of 
 
 int main() {
     // glfw: initialize and configure
@@ -91,25 +92,32 @@ int main() {
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
 
-    //construct main buffer (voxel data)
+    // construct voxel data buffer.
     GLuint ssbo0;
     glGenBuffers(1, &ssbo0);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo0);
     glBufferData(GL_SHADER_STORAGE_BUFFER, SSBO0_SIZE, nullptr, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssbo0); // very important, don't forget, deleted accidentally once and could not figure out what was going wrong for like an hour.
 
-    // prepass texture (prepass depth data) combined with shadow map texture
-    glGenTextures(1, &prePassTex);
-    glBindTexture(GL_TEXTURE_2D, prePassTex);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, PRE_WIDTH, PRE_HEIGHT);
-    glBindImageTexture(0, prePassTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-
-    // construct precomputes buffer. currently holds AO cell generation
+    // occupancy mask data buffer.
     GLuint ssbo1;
     glGenBuffers(1, &ssbo1);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo1);
     glBufferData(GL_SHADER_STORAGE_BUFFER, SSBO1_SIZE, nullptr, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo1); // very important, don't forget, deleted accidentally once and could not figure out what was going wrong for like an hour.
+
+    // construct precomputes buffer. currently holds AO cell generation.
+    GLuint ssbo2;
+    glGenBuffers(1, &ssbo2);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo2);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, SSBO2_SIZE, nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo2); // very important, don't forget, deleted accidentally once and could not figure out what was going wrong for like an hour.
+
+    // prepass texture (prepass depth data) combined with shadow map texture
+    glGenTextures(1, &prePassTex);
+    glBindTexture(GL_TEXTURE_2D, prePassTex);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, PRE_WIDTH, PRE_HEIGHT);
+    glBindImageTexture(0, prePassTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
     // precompute AO hemispheres.
     precomputesShader.use();

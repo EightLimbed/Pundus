@@ -1,12 +1,15 @@
 #version 430 core
 
 layout(std430, binding = 0) buffer BlockData {
-    uint occuMask[524288];
     uint blockData[];
 };
 
+layout(std430, binding = 1) buffer OccuMask {
+    uint occuMask[];
+};
+
 // ligthing precompute data
-layout(std430, binding = 1) buffer LightingData {
+layout(std430, binding = 2) buffer LightingData {
     uint AOcells;
     ivec3 AOoffsets[][6];
 };
