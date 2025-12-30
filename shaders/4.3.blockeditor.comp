@@ -2,16 +2,11 @@
 
 layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in; // 64 local threads is apparently sweet spot
 
-struct chunk { // 64^3 chunks
-    uint occuMask[16]; // 1 bit per 64 voxels.
-    uint blockData[8192]; // 8 bits per voxel.
-};
-
 layout(std430, binding = 0) buffer BlockData {
-    chunk chunks[];
+    uint occuMask[524288];
+    uint blockData[];
 };
 
-// prepass storing image.
 layout(rgba32f, binding=0) uniform image2D prePass;
 
 // player position
@@ -37,57 +32,42 @@ uniform float iTime;
 // constants
 const float passRes = 4.0;
 const uint maskAmount = uint(passRes*passRes*passRes)/4u;
-const uint chunkVoxels = 32*32*32;
 
 // block data getter
 uint getData(uint m) {
-    uint chunkIndex = m / chunkVoxels;
-    uint localIndex = m % chunkVoxels;
-
-    uint idx = localIndex >> 2u;
-    uint bit = (localIndex & 3u) * 8u;
-
-    return (chunks[chunkIndex].blockData[idx] >> bit) & 0xFFu;
+    uint idx = m >> 2u; // divide by 4
+    uint bit = (m & 3u) * 8u; // which byte in that uint
+    return (blockData[idx] >> bit) & 0xFFu;
 }
 
-// block data setter. 
-void setData(uint m, uint value) {
-    uint chunkIndex = m / chunkVoxels;
-    uint localIndex = m % chunkVoxels;
-
-    uint i = localIndex >> 2u;
-    uint byteShift = (localIndex & 3u) * 8u;
+void setData(uint m, uint value) { // pass
+    uint i = m >> 2u;
+    uint byteShift = (m & 3u) * 8u;
 
     uint clearMask = ~(0xFFu << byteShift);
     uint insert = (value & 0xFFu) << byteShift;
 
-    atomicAnd(chunks[chunkIndex].blockData[i], clearMask);
-    atomicOr(chunks[chunkIndex].blockData[i], insert);
+    atomicAnd(blockData[i], clearMask);
+    atomicOr(blockData[i], insert);
 }
 
 void recalcMask(uint m) { // pass chunk/mask index (cm) in to recalculate
-
-    uint groupsPerChunk = chunkVoxels >> 6u; // 64 voxels per group
-
-    uint chunkM = m / groupsPerChunk;
-    uint blockM = m % groupsPerChunk;
-
     // indexing for bitpacking
-    uint idx = blockM >> 5u; 
-    uint bit = blockM & 31u;
+    uint idx = m >> 5u; 
+    uint bit = m & 31u;
     // every two uints checked as group to see if empty.
     uint nm = m*maskAmount;
     bool empty = true;
     for (uint i = 0u; i < maskAmount; i++) {
-        if (chunks[chunkM].blockData[nm+i] != 0u) {
+        if (blockData[nm+i] != 0u) {
             empty = false;
             break;
         }
     }
     if (empty) {
-        atomicOr(chunks[chunkM].occuMask[idx], 1u << bit);
+        atomicOr(occuMask[idx], 1u << bit);
     } else {
-        atomicAnd(chunks[chunkM].occuMask[idx], ~(1u << bit));
+        atomicAnd(occuMask[idx], ~(1u << bit));
     }
 }
 

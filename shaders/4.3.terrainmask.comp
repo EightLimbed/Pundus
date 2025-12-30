@@ -2,19 +2,13 @@
 
 layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in; // 64 local threads is apparently sweet spot
 
-struct chunk { // 32^3 chunks
-    uint occuMask[16]; // 1 bit per 64 voxels.
-    uint blockData[8192]; // 8 bits per voxel.
-};
-
 layout(std430, binding = 0) buffer BlockData {
-    chunk chunks[];
+    uint occuMask[524288];
+    uint blockData[];
 };
 
-// constants.
 const uint passRes = 4u;
 const uint maskAmount = passRes*passRes*passRes/4;
-const uint chunkVoxels = 32*32*32;
 
 // morton encoding/decoding
 uint part1by2(uint x) {
@@ -34,28 +28,21 @@ void main() {
     uvec3 id = gl_GlobalInvocationID;
     // morton
     uint m = morton3D(id);
-    
-    // chunk positioning.
-    uint groupsPerChunk = chunkVoxels >> 6u; // 64 voxels per group
-
-    uint chunkM = m / groupsPerChunk;
-    uint blockM = m % groupsPerChunk;
-
     // indexing for bitpacking
-    uint idx = blockM >> 5u; 
-    uint bit = blockM & 31u;
+    uint idx = m >> 5u; 
+    uint bit = m & 31u;
     // every two uints checked as group to see if empty.
     uint nm = m*maskAmount;
     bool empty = true;
     for (uint i = 0u; i < maskAmount; i++) {
-        if (chunks[chunkM].blockData[nm+i] != 0u) {
+        if (blockData[nm+i] != 0u) {
             empty = false;
             break;
         }
     }
     if (empty) {
-        atomicOr(chunks[chunkM].occuMask[idx], 1u << bit);
+        atomicOr(occuMask[idx], 1u << bit);
     } else {
-        atomicAnd(chunks[chunkM].occuMask[idx], ~(1u << bit));
+        atomicAnd(occuMask[idx], ~(1u << bit));
     }
 }

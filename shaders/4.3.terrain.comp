@@ -2,17 +2,10 @@
 
 layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in; // 64 local threads is apparently sweet spot
 
-struct chunk { // 32^3 chunks
-    uint occuMask[16]; // 1 bit per 64 voxels.
-    uint blockData[8192]; // 8 bits per voxel.
-};
-
 layout(std430, binding = 0) buffer BlockData {
-    chunk chunks[];
+    uint occuMask[524288];
+    uint blockData[];
 };
-
-// constants.
-const uint chunkVoxels = 32*32*32;
 
 // helper functions
 vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -106,17 +99,16 @@ uint morton3D(uvec3 p) {
     return part1by2(p.x) | (part1by2(p.y) << 1) | (part1by2(p.z) << 2);
 }
 
-// data setter.
+
 void setData(uint m, uint value) {
-    uint chunkIndex = m / chunkVoxels;
-    uint localIndex = m % chunkVoxels;
+    uint i = m >> 2u;
+    uint byteShift = (m & 3u) * 8u;
 
-    uint i = localIndex >> 2u;
-    uint byteShift = (localIndex & 3u) * 8u;
-
+    //uint clearMask = ~(0xFFu << byteShift);
     uint insert = (value & 0xFFu) << byteShift;
 
-    atomicOr(chunks[chunkIndex].blockData[i], insert);
+    //atomicAnd(blockData[i], clearMask);
+    atomicOr(blockData[i], insert);
 }
 
 void main() {
@@ -138,7 +130,7 @@ void main() {
     if (grass > 3.0) height += grass;
     if (float(id.y) < height) {
         if (id.y == 0) data = (height > 400.0) ? 7 : 8; // clouds on bottom
-        else if (float(id.y) >= height-1-grass) (grass > 3.0) ? (grass > 3.95 && id.y >= height-1) ? (grass > 3.97) ? data = 3 : data = 4 : data = 2 : data = 1; //grass colors+flowers
+        else if (float(id.y) >= height-1-grass) (grass > 3.0) ? (grass > 3.9 && id.y >= height-1) ? (grass > 3.95) ? data = 3 : data = 4 : data = 2 : data = 1; //grass colors+flowers
         else if (float(id.y) >= height-10-grass) data = 5;
         else data = 6;
     }

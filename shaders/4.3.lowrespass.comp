@@ -2,13 +2,9 @@
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in; // 64 local threads is apparently sweet spot
 
-struct chunk { // 64^3 chunks
-    uint occuMask[16]; // 1 bit per 64 voxels.
-    uint blockData[8192]; // 8 bits per voxel.
-};
-
 layout(std430, binding = 0) buffer BlockData {
-    chunk chunks[];
+    uint occuMask[524288];
+    uint blockData[];
 };
 
 layout(rgba32f, binding=0) uniform writeonly image2D prePass;
@@ -33,17 +29,12 @@ uniform float iTime;
 // constants
 const float passRes = 4.0;
 const float renderDist = 1024.0;
-const uint chunkVoxels = 32*32*32;
 
-// chunk mask getter.
+// chunk mask getter
 bool checkChunk(uint m) {
-    uint chunkIndex = m / chunkVoxels;
-    uint localIndex = m % chunkVoxels;
-
-    uint idx = (localIndex >> 6u) >> 5u; // (voxel / 64) / 32
-    uint bit = (localIndex >> 6u) & 31u; // (voxel / 64) % 32
-
-    return ((chunks[chunkIndex].occuMask[idx] >> bit) & 1u) == 0u;
+    uint idx = m >> 5u; // which 32-bit term (divide by 32)
+    uint bit = m & 31u; // which bit in that term (mod 32 or whatever)
+    return ((occuMask[idx] >> bit) & 1u) == 0u;
 }
 
 // morton encoding/decoding
