@@ -124,10 +124,6 @@ int main() {
     precomputesShader.setInt("AOdiameter",AO_DIAMETER);
     glDispatchCompute(1, 1, 1);
 
-    // sets AOchange in shader.
-    highResShader.use();
-    highResShader.setFloat("AOchange",2.0/float(AO_CELLS));
-
     // make sure writes are visible to everything else
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 

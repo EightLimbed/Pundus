@@ -8,9 +8,9 @@ layout(std430, binding = 1) buffer OccuMask {
     uint occuMask[];
 };
 
-// ligthing precompute data
 layout(std430, binding = 2) buffer LightingData {
     uint AOcells;
+    float AOchange;
     ivec3 AOoffsets[][6];
 };
 
@@ -35,8 +35,6 @@ uniform int screenHeight = 600;
 
 // time
 uniform float iTime;
-
-uniform float AOchange;
 
 // constants
 const float renderDist = 1024.0;
