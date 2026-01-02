@@ -111,7 +111,7 @@ int main() {
     glGenBuffers(1, &ssbo2);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo2);
     glBufferData(GL_SHADER_STORAGE_BUFFER, SSBO2_SIZE, nullptr, GL_DYNAMIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo2); // very important, don't forget, deleted accidentally once and could not figure out what was going wrong for like an hour.
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ssbo2); // very important, don't forget, deleted accidentally once and could not figure out what was going wrong for like an hour.
 
     // prepass texture (prepass depth data) combined with shadow map texture
     glGenTextures(1, &prePassTex);
