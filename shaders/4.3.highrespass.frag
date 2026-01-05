@@ -82,15 +82,18 @@ vec3 getRayDir(vec2 fragCoord, vec2 res, vec3 lookAt, float zoom) {
     return normalize(f + zoom * (uv.x*r + uv.y*u));
 }
 
+float rand(float n) {
+    return fract(sin(n) * 43758.5453123);
+}
+
 float getAmbientOcclusion(ivec3 vp, vec3 normal) {
     float occ = 1.0;
     vp -= ivec3(normal);
     // face id
     int face = (normal.x > 0.0) ? 0 : (normal.y > 0.0) ? 1 : (normal.z > 0.0) ? 2 : (normal.x < 0.0) ? 3 : (normal.y < 0.0) ? 4 : 5;
-    
-    for (int i = 0; i < AOcells; i++) {
-
-        ivec3 offset = AOoffsets[i][face];
+    int add = int(round(rand(iTime)));
+    for (int i = 0; i < AOcells/2; i++) {
+        ivec3 offset = AOoffsets[i+add][face];
 
         uint m = morton3D(vp - offset);
         uint data = getData(m);

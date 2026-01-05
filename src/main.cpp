@@ -25,7 +25,7 @@ GLuint coarseTex; // result of low res pass
 GLuint prePassTex; // prepass texture
 
 // settings
-const uint32_t AXIS_SIZE = 1023;
+const uint32_t AXIS_SIZE = 1024;
 const uint32_t PASS_RES = 4;
 const uint32_t NUM_VOXELS = AXIS_SIZE * AXIS_SIZE * AXIS_SIZE;
 const uint32_t NUM_VUINTS = (NUM_VOXELS + 3) / 4; // ceil division, amount of uints total.
