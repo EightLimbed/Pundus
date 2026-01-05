@@ -10,6 +10,7 @@ layout(std430, binding = 1) buffer OccuMask {
 
 layout(std430, binding = 2) buffer LightingData {
     uint AOcells;
+    uint AOpart;
     float AOchange;
     ivec3 AOoffsets[][6];
 };
@@ -35,9 +36,12 @@ uniform int screenHeight = 600;
 
 // time
 uniform float iTime;
+uniform int AOframeMod; // modulus of frame with AO subdivision, used to offset cell checks.
+
+// render distance.
+uniform float renderDist = 768.0;
 
 // constants
-const float renderDist = 512.0;
 const float passRes = 4.0;
 const vec3 colors[8] = {vec3(0.1,0.7,0.1), vec3(0.1,0.8,0.0), vec3(1.0,0.3,0.5), vec3(1.0,0.5,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(1.0), vec3(0.4,0.6,1.0)};
 
@@ -82,18 +86,13 @@ vec3 getRayDir(vec2 fragCoord, vec2 res, vec3 lookAt, float zoom) {
     return normalize(f + zoom * (uv.x*r + uv.y*u));
 }
 
-float rand(float n) {
-    return fract(sin(n) * 43758.5453123);
-}
-
 float getAmbientOcclusion(ivec3 vp, vec3 normal) {
     float occ = 1.0;
     vp -= ivec3(normal);
     // face id
     int face = (normal.x > 0.0) ? 0 : (normal.y > 0.0) ? 1 : (normal.z > 0.0) ? 2 : (normal.x < 0.0) ? 3 : (normal.y < 0.0) ? 4 : 5;
-    int add = int(round(rand(iTime)));
-    for (int i = 0; i < AOcells/2; i++) {
-        ivec3 offset = AOoffsets[i+add][face];
+    for (int i = 0; i < AOpart; i++) {
+        ivec3 offset = AOoffsets[i+AOframeMod][face];
 
         uint m = morton3D(vp - offset);
         uint data = getData(m);
@@ -111,13 +110,6 @@ float getSkyLight(ivec3 vp, vec3 normal, vec3 rd, vec3 ld) {
 
     // add normal offset to vp.
     vp -= ivec3(normal);
-
-    // specular.
-    rd.xy = -rd.xy;
-    vec3 halfDir = normalize(-rd + ld);
-
-    float specularStrength = max(dot(normal, -halfDir), 0.0);
-    float specular = pow(specularStrength, 32.0)*2.0;
 
     // diffuse raymarched.
     float diffuse = 1.0;
@@ -154,11 +146,18 @@ float getSkyLight(ivec3 vp, vec3 normal, vec3 rd, vec3 ld) {
         uint data = getData(m);
         if (data > 0u) {
             if (data < colorLen) diffuse *= 0.9; // in shadow
-            if (diffuse < 0.3) return 0.3;
+            if (diffuse < 0.4) return 0.4;
         }
     
     }
-    return diffuse+specular; // full light
+    // specular.
+    rd.xy = -rd.xy;
+    vec3 halfDir = normalize(-rd + ld);
+
+    float specularStrength = max(dot(normal, -halfDir), 0.0);
+    float specular = pow(specularStrength, 32.0)*2.0;
+
+    return diffuse+specular; // full or partial light
 }
 
 // main raymarching loop. get rid of normals here when lighting working.
@@ -167,11 +166,6 @@ void main() {
     if (dot(adjustFrag,adjustFrag) < 16.0) return;
 
     ivec2 texel = ivec2(gl_FragCoord.xy) / int(passRes); // integer division, gets image coordinate.
-    ivec2 preSizeOffset = ivec2(0,(imageSize(prePass).y)/2); // offset to bottom half of prepass, where light is stored.
-
-    // light data loading.
-    //vec4 l = imageLoad(prePass, texel+preSizeOffset);
-    //float light = (l.x+l.y+l.z+l.w)*0.25;
 
     float dist = imageLoad(prePass, texel).x;
     
@@ -183,8 +177,7 @@ void main() {
     FragColor = vec4(colors[colorLen],1.0); // background color.
     if (dist > renderDist) return;
 
-    dist = max(dist-8.0, 0.0); // safety
-
+    dist = max(dist-8.0, 0.0); // safety.
 
     // camera setup.
     vec3 lookAt = vec3(pDirX, pDirY, pDirZ);
@@ -232,19 +225,10 @@ void main() {
             vec3 shaded = c*((data < colorLen) ? ambientOcclusion*skyLight : 1.0); // shading.
             // apply distance fog.
             float percent = t/float(renderDist);
-            float atten = percent*percent*percent*percent*percent;
+            float atten = pow(percent, 8.0);
             FragColor = vec4(shaded * (1.0 - atten) + atten * colors[colorLen], 1.0);
             return;
         }
-        
-        //ivec3 cp = ivec3(floor(vec3(vp) / passRes)); // occupancy mask debug
-        //if (checkChunk(morton3D(cp) % 16777216) && posWithin(vec3(vp), vec3(0.0), vec3(1024.0))) {
-            //vec3 c = colors[2]; // -1 to go to 0 in array when 0 is air.
-            //float percent = (float(i)+t)/float(renderDist+2048);
-            //float atten = percent*percent*percent*percent;
-            //FragColor = vec4(c-dot(normal, normalize(vp-vec3(500.0,1000.0,0.0)))*0.3 ,1.0);
-            //return;
-        //}
 
 		if (tMax.x <= tMax.y && tMax.x <= tMax.z) { // X is closest
 			vp.x += stride.x;

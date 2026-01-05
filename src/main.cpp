@@ -24,24 +24,29 @@ GLuint coarseTex; // result of low res pass
 
 GLuint prePassTex; // prepass texture
 
-// settings
+// SETTINGS
+
+// world
 const uint32_t AXIS_SIZE = 1024;
 const uint32_t PASS_RES = 4;
 const uint32_t NUM_VOXELS = AXIS_SIZE * AXIS_SIZE * AXIS_SIZE;
 const uint32_t NUM_VUINTS = (NUM_VOXELS + 3) / 4; // ceil division, amount of uints total.
 const uint32_t NUM_GUINTS = (NUM_VUINTS)/(PASS_RES*PASS_RES*PASS_RES); // uints per group for low res pass.
 
+// screen
 unsigned int SCR_WIDTH = 800;
 unsigned int SCR_HEIGHT = 600;
 unsigned int PRE_WIDTH = SCR_WIDTH/PASS_RES;
 unsigned int PRE_HEIGHT = SCR_HEIGHT/PASS_RES;
+float RENDER_DISTANCE = 256.0;
 unsigned int AO_DIAMETER = 5;
+unsigned int AO_SKIPPING = 2;
 unsigned int AO_CELLS = (AO_DIAMETER+1)*(AO_DIAMETER+1)*((AO_DIAMETER+1)/2);
 
-// sizes
+// buffer sizes
 const size_t SSBO0_SIZE = sizeof(GLuint) * (NUM_VUINTS);
 const size_t SSBO1_SIZE = sizeof(GLuint) * (NUM_GUINTS);
-const size_t SSBO2_SIZE = sizeof(GLuint) + sizeof(GL_INT_VEC3)*6*AO_CELLS; // cells amount, plus rectangle of 
+const size_t SSBO2_SIZE = 2*sizeof(GLuint) + sizeof(GL_INT_VEC3)*6*AO_CELLS; // cells amount, plus rectangle of 
 
 int main() {
     // glfw: initialize and configure
@@ -122,6 +127,7 @@ int main() {
     // precompute AO hemispheres.
     precomputesShader.use();
     precomputesShader.setInt("AOdiameter",AO_DIAMETER);
+    precomputesShader.setInt("AOskipping",AO_SKIPPING);
     glDispatchCompute(1, 1, 1);
 
     // make sure writes are visible to everything else
@@ -149,6 +155,7 @@ int main() {
     float deltaTime = 0.0f;
     float lastTime = 0.0f;
     int lastClick = 0;
+    int frameMod = 0;
 
     while (!glfwWindowShouldClose(window))
     {
@@ -198,8 +205,14 @@ int main() {
         //glBindFramebuffer(GL_FRAMEBUFFER, 0); // default framebuffer
     
         //glClear(GL_COLOR_BUFFER_BIT);
+        
+        // calculates offset for AO frame skipping.
+        frameMod++; // increment framemod
+        frameMod = frameMod % AO_SKIPPING;
+        //std::cout<<frameMod<<std::endl;
 
         highResShader.use();
+        highResShader.setInt("AOframeMod", frameMod);
         highResShader.setFloat("pPosX", Player.posX);
         highResShader.setFloat("pPosY", Player.posY);
         highResShader.setFloat("pPosZ", Player.posZ);
@@ -223,8 +236,8 @@ int main() {
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 void processInput(GLFWwindow *window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         glfwSetCursorPos(window, 0.0,0.0);
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
         glfwFocusWindow(window);
