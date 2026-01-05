@@ -5,7 +5,7 @@ layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in; // 1 thread is 
 layout(std430, binding = 2) buffer LightingData {
     uint AOcells;
     float AOchange;
-    ivec4 AOoffsets[][6];
+    ivec3 AOoffsets[][6];
 };
 
 uniform int AOdiameter;
@@ -30,7 +30,7 @@ void main() {
             else if (normals[n].y < 0) p = ivec3(p.y,-p.x,p.z);
             else p = ivec3(p.y,p.z,-p.x);
 
-            AOoffsets[i++][n] = ivec4(p,int(length(p)));
+            AOoffsets[i++][n] = p;
         }
         }
         }
