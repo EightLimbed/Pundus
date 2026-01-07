@@ -22,10 +22,6 @@ uniform float pDirX;
 uniform float pDirY;
 uniform float pDirZ;
 
-// screen
-uniform int screenWidth = 800;
-uniform int screenHeight = 600;
-
 // input
 uniform bool click;
 

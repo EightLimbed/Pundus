@@ -46,7 +46,7 @@ unsigned int RES_HEIGHT = SCR_HEIGHT/RES_MOD;
 unsigned int PRE_WIDTH = RES_WIDTH/PASS_RES;
 unsigned int PRE_HEIGHT = RES_HEIGHT/PASS_RES;
 
-//float RENDER_DISTANCE = 256.0;
+float RENDER_DISTANCE = 768.0;
 
 unsigned int AO_DIAMETER = 5;
 unsigned int AO_SKIPPING = 2;
@@ -128,26 +128,6 @@ int main() {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo2);
     glBufferData(GL_SHADER_STORAGE_BUFFER, SSBO2_SIZE, nullptr, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ssbo2); // very important, don't forget, deleted accidentally once and could not figure out what was going wrong for like an hour.
-
-    // prepass texture (prepass depth data).
-    glGenTextures(1, &prePassTex);
-    glBindTexture(GL_TEXTURE_2D, prePassTex);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, PRE_WIDTH, PRE_HEIGHT);
-    glBindImageTexture(0, prePassTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-
-    // screen texture (screen color data).
-    glGenTextures(1, &screenTex);
-    glBindTexture(GL_TEXTURE_2D, screenTex);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, RES_WIDTH, RES_HEIGHT);
-    glBindImageTexture(1, screenTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    
-    screenShader.use(); // uses screen shader.
-    glUniform1i(glGetUniformLocation(screenShader.ID, "screen"), 0); // set sampler uniform.
     
     updateSettings();
 
@@ -195,8 +175,7 @@ int main() {
         Player.HandleMouseInput(window);
         processInput(window);
 
-        // block editing.
-        
+        // block editing. 
         if (Player.click != 0 && lastClick != Player.click) {
             blockEditShader.use();
             blockEditShader.setBool("click", (Player.click==1));
@@ -228,7 +207,6 @@ int main() {
         // make sure writes are visible to everything else
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 
-        // high res pass.
         //glBindFramebuffer(GL_FRAMEBUFFER, 0); // default framebuffer
     
         //glClear(GL_COLOR_BUFFER_BIT);
@@ -237,6 +215,7 @@ int main() {
         frameMod++; // increment framemod
         frameMod = frameMod % AO_SKIPPING;
 
+        // high res pass.
         highResShader.use();
         highResShader.setInt("AOframeMod", frameMod);
         highResShader.setFloat("pPosX", Player.posX);
@@ -254,8 +233,8 @@ int main() {
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 
         // screen shader.
-        glActiveTexture(GL_TEXTURE0); // binds screen texture as sampler
-        glBindTexture(GL_TEXTURE_2D, screenTex);
+        //glActiveTexture(GL_TEXTURE0); // binds screen texture as sampler
+        //glBindTexture(GL_TEXTURE_2D, screenTex);
 
         screenShader.use(); // uses screen shader.
         
@@ -293,11 +272,13 @@ void updateSettings() {
     lowRes.use();
     lowRes.setInt("passWidth", PRE_WIDTH);
     lowRes.setInt("passHeight", PRE_HEIGHT);
+    lowRes.setFloat("renderDist", RENDER_DISTANCE);
 
     Shader highRes = *highResPtr; // high res shader resize
     highRes.use();
     highRes.setInt("passWidth", RES_WIDTH);
     highRes.setInt("passHeight", RES_HEIGHT);
+    highRes.setFloat("renderDist", RENDER_DISTANCE);
 
     Shader screen = *screenPtr; // screen shader resize.
     screen.use(); // uses screen shader.
@@ -306,17 +287,27 @@ void updateSettings() {
     screen.setInt("screenHeight", SCR_HEIGHT);
     screen.setInt("imageWidth", SCR_WIDTH);
     screen.setInt("imageHeight", SCR_HEIGHT);
+    glUniform1i(glGetUniformLocation(screen.ID, "screen"), 0);
 
     // resize textures
+    // prepass texture (prepass depth data).
+    glGenTextures(1, &prePassTex);
     glBindTexture(GL_TEXTURE_2D, prePassTex);
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, PRE_WIDTH, PRE_HEIGHT);
+    glBindImageTexture(0, prePassTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
+    // screen texture (screen color data).
+    glGenTextures(1, &screenTex);
     glBindTexture(GL_TEXTURE_2D, screenTex);
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, RES_WIDTH, RES_HEIGHT);
+    glBindImageTexture(1, screenTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, screenTex);
-    glUniform1i(glGetUniformLocation(screen.ID, "screen"), 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    
+    glUniform1i(glGetUniformLocation(screen.ID, "screen"), 0); // set sampler uniform.
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes

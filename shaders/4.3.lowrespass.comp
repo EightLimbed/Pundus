@@ -30,7 +30,7 @@ uniform int passHeight = 150;
 uniform float iTime;
 
 // render distance
-uniform float renderDist = 768.0;
+uniform float renderDist = 1024.0;
 
 // constants
 const float passRes = 4.0;

@@ -42,7 +42,7 @@ uniform float iTime;
 uniform int AOframeMod; // modulus of frame with AO subdivision, used to offset cell checks.
 
 // render distance.
-uniform float renderDist = 768.0;
+uniform float renderDist = 1024.0;
 
 // constants
 const float passRes = 4.0;
