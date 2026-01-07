@@ -39,7 +39,7 @@ const uint32_t NUM_GUINTS = (NUM_VUINTS)/(PASS_RES*PASS_RES*PASS_RES); // uints 
 // screen
 unsigned int SCR_WIDTH = 800;
 unsigned int SCR_HEIGHT = 600;
-unsigned int RES_MOD = 2;
+unsigned int RES_MOD = 1;
 unsigned int RES_WIDTH = SCR_WIDTH/RES_MOD;
 unsigned int RES_HEIGHT = SCR_HEIGHT/RES_MOD;
 
@@ -48,8 +48,8 @@ unsigned int PRE_HEIGHT = RES_HEIGHT/PASS_RES;
 
 float RENDER_DISTANCE = 768.0;
 
-unsigned int AO_DIAMETER = 5;
-unsigned int AO_SKIPPING = 2;
+unsigned int AO_DIAMETER = 7;
+unsigned int AO_SKIPPING = 3;
 unsigned int AO_CELLS = (AO_DIAMETER+1)*(AO_DIAMETER+1)*((AO_DIAMETER+1)/2);
 
 // buffer sizes
@@ -237,6 +237,7 @@ int main() {
         //glBindTexture(GL_TEXTURE_2D, screenTex);
 
         screenShader.use(); // uses screen shader.
+        screenShader.setFloat("iTime", currentTime);
         
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -285,8 +286,6 @@ void updateSettings() {
 
     screen.setInt("screenWidth", SCR_WIDTH);
     screen.setInt("screenHeight", SCR_HEIGHT);
-    screen.setInt("imageWidth", SCR_WIDTH);
-    screen.setInt("imageHeight", SCR_HEIGHT);
     glUniform1i(glGetUniformLocation(screen.ID, "screen"), 0);
 
     // resize textures

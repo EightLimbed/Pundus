@@ -17,7 +17,7 @@ const ivec3 normals[6] = {ivec3(1,0,0),ivec3(0,1,0),ivec3(0,0,1),ivec3(-1,0,0),i
 void main() {
     AOcells = (AOdiameter+1)*(AOdiameter+1)*((AOdiameter+1)/2);
     AOpart = AOcells/AOskipping;
-    AOchange = 1.5/float(AOcells);
+    AOchange = float(AOskipping)/float(AOcells);
     for (int n = 0; n < 6; n++) {
         int i = 0;
         for (int x = 0; x < ((AOdiameter+1)/2); x++) {

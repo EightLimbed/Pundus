@@ -123,8 +123,8 @@ void main() {
     float grass = seededRandom(vec2(id.x,id.z))*4.0;
     float monolith = seededRandom(floor(vec2(id.x,id.z)/32.0))*128.0;
 
-    if (monolith > 120.0) {
-        height = 512.0;
+    if (monolith > 124.0) {
+        height += 256.0;
         if (float(id.y) < height && id.y != 0) {
             setData(m, 6);
             return;
