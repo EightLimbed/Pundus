@@ -23,8 +23,8 @@ uniform float pDirY;
 uniform float pDirZ;
 
 // screen
-uniform int screenWidth = 800;
-uniform int screenHeight = 600;
+uniform int passWidth = 200;
+uniform int passHeight = 150;
 
 // time
 uniform float iTime;
@@ -71,7 +71,7 @@ void main() {
     // camera setup.
     vec3 ro = vec3(pPosX,pPosY,pPosZ)/passRes;
     vec3 lookAt = vec3(pDirX, pDirY, pDirZ);
-    vec3 rd = getRayDir(fragCoord, vec2(screenWidth,screenHeight)/passRes, lookAt, 1.0);
+    vec3 rd = getRayDir(fragCoord, vec2(passWidth,passHeight), lookAt, 1.0);
     
     // voxel space setup.
     ivec3 stride = ivec3(sign(rd));

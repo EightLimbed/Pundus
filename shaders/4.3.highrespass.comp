@@ -1,5 +1,7 @@
 #version 430 core
 
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in; // 64 local threads is apparently sweet spot
+
 layout(std430, binding = 0) buffer BlockData {
     uint blockData[];
 };
@@ -15,10 +17,11 @@ layout(std430, binding = 2) buffer LightingData {
     ivec3 AOoffsets[][6];
 };
 
-out vec4 FragColor;
-
 // positions from coarse prepass
 layout(rgba32f, binding=0) uniform readonly image2D prePass;
+
+// screen data
+layout(rgba32f, binding=1) uniform writeonly image2D screen;
 
 // player position
 uniform float pPosX;
@@ -31,8 +34,8 @@ uniform float pDirY;
 uniform float pDirZ;
 
 // screen
-uniform int screenWidth = 800;
-uniform int screenHeight = 600;
+uniform int passWidth = 800;
+uniform int passHeight = 600;
 
 // time
 uniform float iTime;
@@ -162,10 +165,19 @@ float getSkyLight(ivec3 vp, vec3 normal, vec3 rd, vec3 ld) {
 
 // main raymarching loop. get rid of normals here when lighting working.
 void main() {
-    vec2 adjustFrag = gl_FragCoord.xy - vec2(screenWidth,screenHeight)/2;
-    if (dot(adjustFrag,adjustFrag) < 16.0) return;
 
-    ivec2 texel = ivec2(gl_FragCoord.xy) / int(passRes); // integer division, gets image coordinate.
+    // gets position from thread invocation.
+    ivec2 fragCoord = ivec2(gl_GlobalInvocationID.xy);
+
+    //if (fragCoord.x >= passWidth || fragCoord.y >= passHeight)
+    //return;
+
+    // crosshair
+    vec2 adjustFrag = fragCoord - vec2(passWidth,passHeight)/2;
+    if (dot(adjustFrag,adjustFrag) < 6.0) return;
+
+    // low res prepass reading.
+    ivec2 texel = ivec2(fragCoord) / int(passRes); // integer division, gets image coordinate.
 
     float dist = imageLoad(prePass, texel).x;
     
@@ -174,26 +186,27 @@ void main() {
         dist = min(dist, imageLoad(prePass, texel+nOffsets[i]).x);
     }
 
-    FragColor = vec4(colors[colorLen],1.0); // background color.
+    imageStore(screen, fragCoord, vec4(colors[colorLen],1.0)); // background color.
+
     if (dist > renderDist) return;
 
     dist = max(dist-8.0, 0.0); // safety.
+    //float depth = dist/1024.0;
 
     // camera setup.
     vec3 lookAt = vec3(pDirX, pDirY, pDirZ);
-    vec3 rd = getRayDir(gl_FragCoord.xy, vec2(screenWidth,screenHeight), lookAt, 1.0);
+    vec3 rd = getRayDir(fragCoord.xy, vec2(passWidth,passHeight), lookAt, 1.0);
 
     vec3 ro = vec3(pPosX,pPosY,pPosZ) + rd*dist;
 
     // voxel space setup.
     ivec3 stride = ivec3(sign(rd));
-    // inverse of rd, made to be non 0.
-    vec3 dr = 1.0 / max(abs(rd), vec3(1e-6));
+    
+    vec3 dr = 1.0 / max(abs(rd), vec3(1e-6)); // inverse of rd, made to be non 0.
 
     ivec3 vp = ivec3(floor(ro)); //starting position.
 
-    // distance to first voxel boundary.
-    vec3 bound;
+    vec3 bound; // distance to first voxel boundary.
     bound.x = (rd.x > 0.0) ? (float(vp.x) + 1.0 - ro.x) : (ro.x - float(vp.x));
     bound.y = (rd.y > 0.0) ? (float(vp.y) + 1.0 - ro.y) : (ro.y - float(vp.y));
     bound.z = (rd.z > 0.0) ? (float(vp.z) + 1.0 - ro.z) : (ro.z - float(vp.z));
@@ -226,7 +239,7 @@ void main() {
             // apply distance fog.
             float percent = t/float(renderDist);
             float atten = pow(percent, 8.0);
-            FragColor = vec4(shaded * (1.0 - atten) + atten * colors[colorLen], 1.0);
+            imageStore(screen, fragCoord, vec4(shaded * (1.0 - atten) + atten * colors[colorLen], 1.0));
             return;
         }
 

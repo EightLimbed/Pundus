@@ -14,21 +14,24 @@
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window);
 void processPlayer(PlayerController Player, Shader lowRes, Shader highRes);
+void updateSettings();
 
 // pointers
 Shader* lowResPtr;
 Shader* highResPtr;
+Shader* screenPtr;
 
 GLuint coarseFBO; // FBO for low resolution
 GLuint coarseTex; // result of low res pass
 
 GLuint prePassTex; // prepass texture
+GLuint screenTex; // screen texture
 
 // SETTINGS
 
 // world
 const uint32_t AXIS_SIZE = 1024;
-const uint32_t PASS_RES = 4;
+const uint32_t PASS_RES = 4; // occupancy mask width, and step size of low res pass.
 const uint32_t NUM_VOXELS = AXIS_SIZE * AXIS_SIZE * AXIS_SIZE;
 const uint32_t NUM_VUINTS = (NUM_VOXELS + 3) / 4; // ceil division, amount of uints total.
 const uint32_t NUM_GUINTS = (NUM_VUINTS)/(PASS_RES*PASS_RES*PASS_RES); // uints per group for low res pass.
@@ -36,9 +39,15 @@ const uint32_t NUM_GUINTS = (NUM_VUINTS)/(PASS_RES*PASS_RES*PASS_RES); // uints 
 // screen
 unsigned int SCR_WIDTH = 800;
 unsigned int SCR_HEIGHT = 600;
-unsigned int PRE_WIDTH = SCR_WIDTH/PASS_RES;
-unsigned int PRE_HEIGHT = SCR_HEIGHT/PASS_RES;
-float RENDER_DISTANCE = 256.0;
+unsigned int RES_MOD = 2;
+unsigned int RES_WIDTH = SCR_WIDTH/RES_MOD;
+unsigned int RES_HEIGHT = SCR_HEIGHT/RES_MOD;
+
+unsigned int PRE_WIDTH = RES_WIDTH/PASS_RES;
+unsigned int PRE_HEIGHT = RES_HEIGHT/PASS_RES;
+
+//float RENDER_DISTANCE = 256.0;
+
 unsigned int AO_DIAMETER = 5;
 unsigned int AO_SKIPPING = 2;
 unsigned int AO_CELLS = (AO_DIAMETER+1)*(AO_DIAMETER+1)*((AO_DIAMETER+1)/2);
@@ -85,12 +94,14 @@ int main() {
     // build and compile shader program
     Shader terrainShader("shaders/4.3.terrain.comp");
     Shader terrainMaskShader("shaders/4.3.terrainmask.comp");
-    Shader lowResShader("shaders/4.3.lowrespass.comp");
-    Shader highResShader("shaders/4.3.screenquad.vert","shaders/4.3.highrespass.frag");
-    Shader blockEditShader("shaders/4.3.blockeditor.comp");
     Shader precomputesShader("shaders/4.3.precomputes.comp");
+    Shader lowResShader("shaders/4.3.lowrespass.comp");
+    Shader highResShader("shaders/4.3.highrespass.comp");
+    Shader blockEditShader("shaders/4.3.blockeditor.comp");
+    Shader screenShader("shaders/4.3.screenquad.vert","shaders/4.3.screen.frag");
     lowResPtr = &lowResShader; // pointer for screen resizing
     highResPtr = &highResShader; // pointer for screen resizing
+    screenPtr = &screenShader; // pointer for screen resizing
 
     // vaos need to be bound because of biolerplating shizzle (even if not used)
     GLuint vao;
@@ -118,11 +129,27 @@ int main() {
     glBufferData(GL_SHADER_STORAGE_BUFFER, SSBO2_SIZE, nullptr, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ssbo2); // very important, don't forget, deleted accidentally once and could not figure out what was going wrong for like an hour.
 
-    // prepass texture (prepass depth data) combined with shadow map texture
+    // prepass texture (prepass depth data).
     glGenTextures(1, &prePassTex);
     glBindTexture(GL_TEXTURE_2D, prePassTex);
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, PRE_WIDTH, PRE_HEIGHT);
     glBindImageTexture(0, prePassTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+    // screen texture (screen color data).
+    glGenTextures(1, &screenTex);
+    glBindTexture(GL_TEXTURE_2D, screenTex);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, RES_WIDTH, RES_HEIGHT);
+    glBindImageTexture(1, screenTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    
+    screenShader.use(); // uses screen shader.
+    glUniform1i(glGetUniformLocation(screenShader.ID, "screen"), 0); // set sampler uniform.
+    
+    updateSettings();
 
     // precompute AO hemispheres.
     precomputesShader.use();
@@ -209,7 +236,6 @@ int main() {
         // calculates offset for AO frame skipping.
         frameMod++; // increment framemod
         frameMod = frameMod % AO_SKIPPING;
-        //std::cout<<frameMod<<std::endl;
 
         highResShader.use();
         highResShader.setInt("AOframeMod", frameMod);
@@ -221,13 +247,25 @@ int main() {
         highResShader.setFloat("pDirZ", Player.dirZ);
         highResShader.setFloat("iTime", currentTime);
 
+        // dispatch high res compute shader threads, based on thread pool size of 64.
+        glDispatchCompute((RES_WIDTH+7)/8, (RES_HEIGHT+7)/8, 1);
+
+        // make sure writes are visible to everything else
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+
+        // screen shader.
+        glActiveTexture(GL_TEXTURE0); // binds screen texture as sampler
+        glBindTexture(GL_TEXTURE_2D, screenTex);
+
+        screenShader.use(); // uses screen shader.
+        
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
         // swap / poll
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
-    std::cout << "FPS: " << 1.0/deltaTime << std::endl; // print fps at time of closing. Good for benchmarking as prints don't slow things down.
+    std::cout << "FPS: " << 1.0/deltaTime << std::endl; // print fps at time of closing.
     // glfw: terminate, clearing all previously allocated GLFW resources.
     glfwTerminate();
     return 0;
@@ -245,29 +283,55 @@ void processInput(GLFWwindow *window) {
     }
 }
 
-// glfw: whenever the window size changed (by OS or user resize) this callback function executes
-void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-    std::cout<<"resized to: "<<width<<", "<<height<<std::endl;
-    SCR_WIDTH = width;
-    SCR_HEIGHT = height;
-    PRE_WIDTH = width/PASS_RES;
-    PRE_HEIGHT = height/PASS_RES;
-    
-    std::cout<<"prepass at: "<<PRE_WIDTH<<", "<<PRE_HEIGHT<<std::endl;
-    // make sure the viewport matches the new window dimensions; note that width and height will be significantly larger than specified on retina displays.
+void updateSettings() {
+    RES_WIDTH = SCR_WIDTH/RES_MOD;
+    RES_HEIGHT = SCR_HEIGHT/RES_MOD;
+    PRE_WIDTH = RES_WIDTH/PASS_RES;
+    PRE_HEIGHT = RES_HEIGHT/PASS_RES;
 
     Shader lowRes = *lowResPtr; // low res shader resize
     lowRes.use();
-    lowRes.setInt("screenWidth", width);
-    lowRes.setInt("screenHeight", height);
+    lowRes.setInt("passWidth", PRE_WIDTH);
+    lowRes.setInt("passHeight", PRE_HEIGHT);
 
     Shader highRes = *highResPtr; // high res shader resize
     highRes.use();
-    highRes.setInt("screenWidth", width);
-    highRes.setInt("screenHeight", height);
+    highRes.setInt("passWidth", RES_WIDTH);
+    highRes.setInt("passHeight", RES_HEIGHT);
 
-    glViewport(0, 0, width, height); // resize viewport
-    glGenTextures(1, &prePassTex); // resize prepass and lighting image
+    Shader screen = *screenPtr; // screen shader resize.
+    screen.use(); // uses screen shader.
+
+    screen.setInt("screenWidth", SCR_WIDTH);
+    screen.setInt("screenHeight", SCR_HEIGHT);
+    screen.setInt("imageWidth", SCR_WIDTH);
+    screen.setInt("imageHeight", SCR_HEIGHT);
+
+    // resize textures
     glBindTexture(GL_TEXTURE_2D, prePassTex);
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, PRE_WIDTH, PRE_HEIGHT);
+
+    glBindTexture(GL_TEXTURE_2D, screenTex);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, RES_WIDTH, RES_HEIGHT);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, screenTex);
+    glUniform1i(glGetUniformLocation(screen.ID, "screen"), 0);
+}
+
+// glfw: whenever the window size changed (by OS or user resize) this callback function executes
+void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+    std::cout<<"screen resized to: "<<width<<", "<<height<<std::endl;
+
+    // recalculates screen values.
+    SCR_WIDTH = width;
+    SCR_HEIGHT = height;
+
+    std::cout<<"image resized to: "<<RES_WIDTH<<", "<<RES_HEIGHT<<std::endl;
+    std::cout<<"low res pass resized to: "<<PRE_WIDTH<<", "<<PRE_HEIGHT<<std::endl;
+    
+    updateSettings(); // updates settings based on new values.
+
+    // make sure the viewport matches the new window dimensions; note that width and height will be significantly larger than specified on retina displays.
+    glViewport(0, 0, width, height); // resize viewport
 }
