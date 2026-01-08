@@ -26,6 +26,7 @@ GLuint coarseTex; // result of low res pass
 
 GLuint prePassTex; // prepass texture
 GLuint screenTex; // screen texture
+GLuint bloomTex; // emissive voxel bloom texture
 
 // SETTINGS
 
@@ -39,7 +40,7 @@ const uint32_t NUM_GUINTS = (NUM_VUINTS)/(PASS_RES*PASS_RES*PASS_RES); // uints 
 // screen
 unsigned int SCR_WIDTH = 800;
 unsigned int SCR_HEIGHT = 600;
-unsigned int RES_MOD = 1;
+unsigned int RES_MOD = 2;
 unsigned int RES_WIDTH = SCR_WIDTH/RES_MOD;
 unsigned int RES_HEIGHT = SCR_HEIGHT/RES_MOD;
 
@@ -233,8 +234,6 @@ int main() {
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 
         // screen shader.
-        //glActiveTexture(GL_TEXTURE0); // binds screen texture as sampler
-        //glBindTexture(GL_TEXTURE_2D, screenTex);
 
         screenShader.use(); // uses screen shader.
         screenShader.setFloat("iTime", currentTime);
@@ -286,7 +285,6 @@ void updateSettings() {
 
     screen.setInt("screenWidth", SCR_WIDTH);
     screen.setInt("screenHeight", SCR_HEIGHT);
-    glUniform1i(glGetUniformLocation(screen.ID, "screen"), 0);
 
     // resize textures
     // prepass texture (prepass depth data).
@@ -306,7 +304,24 @@ void updateSettings() {
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     
+
+    // bloom texture (bloom color data).
+    glGenTextures(1, &bloomTex);
+    glBindTexture(GL_TEXTURE_2D, bloomTex);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, RES_WIDTH/8, RES_HEIGHT/8);
+    glBindImageTexture(2, bloomTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    // bind samplers.
+    glActiveTexture(GL_TEXTURE0); // binds screen texture as sampler
+    glBindTexture(GL_TEXTURE_2D, screenTex);
     glUniform1i(glGetUniformLocation(screen.ID, "screen"), 0); // set sampler uniform.
+
+    glActiveTexture(GL_TEXTURE1); // binds screen texture as sampler
+    glBindTexture(GL_TEXTURE_2D, bloomTex);
+    glUniform1i(glGetUniformLocation(screen.ID, "bloom"), 1); // set sampler uniform.
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
