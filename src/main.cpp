@@ -40,7 +40,7 @@ const uint32_t NUM_GUINTS = (NUM_VUINTS)/(PASS_RES*PASS_RES*PASS_RES); // uints 
 // screen
 unsigned int SCR_WIDTH = 800;
 unsigned int SCR_HEIGHT = 600;
-unsigned int RES_MOD = 2;
+unsigned int RES_MOD = 1;
 unsigned int RES_WIDTH = SCR_WIDTH/RES_MOD;
 unsigned int RES_HEIGHT = SCR_HEIGHT/RES_MOD;
 
@@ -234,7 +234,6 @@ int main() {
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 
         // screen shader.
-
         screenShader.use(); // uses screen shader.
         screenShader.setFloat("iTime", currentTime);
         
@@ -301,18 +300,20 @@ void updateSettings() {
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     
 
     // bloom texture (bloom color data).
     glGenTextures(1, &bloomTex);
     glBindTexture(GL_TEXTURE_2D, bloomTex);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, RES_WIDTH/8, RES_HEIGHT/8);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, RES_WIDTH/4, RES_HEIGHT/4);
     glBindImageTexture(2, bloomTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     // bind samplers.
     glActiveTexture(GL_TEXTURE0); // binds screen texture as sampler

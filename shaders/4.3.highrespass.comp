@@ -23,7 +23,7 @@ layout(rgba32f, binding=0) uniform readonly image2D prePass;
 // screen data
 layout(rgba32f, binding=1) uniform writeonly image2D screen;
 
-// screen data
+// bloom data
 layout(rgba32f, binding=2) uniform writeonly image2D bloom;
 
 // player position
@@ -49,7 +49,7 @@ uniform float renderDist = 1024.0;
 
 // constants
 const float passRes = 4.0;
-const vec4 colors[8] = {vec4(0.1,0.7,0.1,0.0), vec4(0.1,0.8,0.0,0.0), vec4(1.0,0.3,0.5,0.0), vec4(1.0,0.5,0.1,0.0), vec4(0.6,0.3,0.0,0.0), vec4(0.5,0.5,0.5,0.0), vec4(1.0), vec4(0.4,0.6,1.0,1.0)};
+const vec4 colors[8] = {vec4(0.1,0.7,0.1,0.0), vec4(0.1,0.8,0.0,0.0), vec4(1.0,0.3,0.5,0.0), vec4(1.0,0.5,0.1,0.0), vec4(0.6,0.3,0.0,0.0), vec4(0.5,0.5,0.5,0.0), vec4(1.0), vec4(0.4,0.6,1.0,0.5)};
 
 // precompute constants
 const ivec2 nOffsets[4] = {ivec2(0,1), ivec2(0,-1), ivec2(1,0), ivec2(-1,0)}; // offsets for low res pass sampling.
@@ -103,7 +103,7 @@ float getAmbientOcclusion(ivec3 vp, vec3 normal) {
         uint m = morton3D(vp - offset);
         uint data = getData(m);
         if (data > 0u) {
-            occ -= AOchange;
+            occ -= AOchange*(0.5-colors[data-1].w);
         }
     }
     return occ;
@@ -190,7 +190,7 @@ void main() {
     }
 
     imageStore(screen, fragCoord, vec4(colors[colorLen].xyz,1.0)); // background color.
-    imageStore(bloom, fragCoord/8, vec4(0.0));
+    imageStore(bloom, fragCoord/4, vec4(0.0));
 
     if (dist > renderDist) return;
 
@@ -244,7 +244,7 @@ void main() {
             float percent = t/float(renderDist);
             float atten = pow(percent, 8.0);
             imageStore(screen, fragCoord, vec4(shaded * (1.0 - atten) + atten * colors[colorLen].xyz, 1.0));
-            imageStore(bloom, fragCoord/8, c);
+            imageStore(bloom, fragCoord/4, c);
             return;
         }
 
