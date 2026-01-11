@@ -48,7 +48,7 @@ unsigned int PRE_HEIGHT = RES_HEIGHT/PASS_RES;
 
 float RENDER_DISTANCE = 768.0;
 
-unsigned int AO_DIAMETER = 7;
+unsigned int AO_DIAMETER = 5;
 unsigned int AO_SKIPPING = 3;
 unsigned int AO_CELLS = (AO_DIAMETER+1)*(AO_DIAMETER+1)*((AO_DIAMETER+1)/2);
 
