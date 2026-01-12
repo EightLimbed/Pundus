@@ -39,7 +39,7 @@ const uint32_t NUM_GUINTS = (NUM_VUINTS)/(PASS_RES*PASS_RES*PASS_RES); // uints 
 // screen
 unsigned int SCR_WIDTH = 800;
 unsigned int SCR_HEIGHT = 600;
-unsigned int RES_MOD = 1;
+unsigned int RES_MOD = 2;
 unsigned int RES_WIDTH = SCR_WIDTH/RES_MOD;
 unsigned int RES_HEIGHT = SCR_HEIGHT/RES_MOD;
 
@@ -58,6 +58,18 @@ const size_t SSBO1_SIZE = sizeof(GLuint) * (NUM_GUINTS);
 const size_t SSBO2_SIZE = 2*sizeof(GLuint) + sizeof(GL_INT_VEC3)*6*AO_CELLS; // cells amount, plus rectangle of 
 
 int main() {
+    std::string userInput;
+
+    std::cout << "Generate World (new) or Load File (load)?" << std::endl;
+    std::getline(std::cin, userInput); // read line of input
+
+    if (userInput == "new") {
+        
+    } else {
+        return 0;
+    }
+
+
     // glfw: initialize and configure
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
