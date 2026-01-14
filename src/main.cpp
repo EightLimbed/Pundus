@@ -49,7 +49,7 @@ unsigned int PRE_HEIGHT = RES_HEIGHT/PASS_RES;
 float RENDER_DISTANCE = 768.0;
 
 unsigned int AO_DIAMETER = 5;
-unsigned int AO_SKIPPING = 3;
+unsigned int AO_SKIPPING = 2;
 unsigned int AO_CELLS = (AO_DIAMETER+1)*(AO_DIAMETER+1)*((AO_DIAMETER+1)/2);
 
 // buffer sizes
@@ -191,6 +191,7 @@ int main() {
         if (Player.click != 0 && lastClick != Player.click) {
             blockEditShader.use();
             blockEditShader.setBool("click", (Player.click==1));
+            blockEditShader.setInt("brush", Player.brush);
             blockEditShader.setFloat("pPosX", Player.posX);
             blockEditShader.setFloat("pPosY", Player.posY);
             blockEditShader.setFloat("pPosZ", Player.posZ);
@@ -198,7 +199,7 @@ int main() {
             blockEditShader.setFloat("pDirY", Player.dirY);
             blockEditShader.setFloat("pDirZ", Player.dirZ);
             
-            glDispatchCompute(4, 4, 4);
+            glDispatchCompute(16, 16, 16);
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             //std::cout<<(Player.click)<<std::endl;
         }

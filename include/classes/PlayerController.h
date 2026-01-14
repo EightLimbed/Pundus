@@ -32,6 +32,7 @@ public:
     float dirY;
     float dirZ;
     int click = 0;
+    int brush = 0;
 
     PlayerController(GLFWwindow *window) {
         posX = 512;
@@ -104,6 +105,29 @@ public:
             click = -1;
         }
         else click = 0;
+
+        // brush settings
+        if (glfwGetKey(window, GLFW_KEY_0) == GLFW_PRESS) {
+            brush = 9;
+        } else if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
+            brush = 0;
+        } else if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) {
+            brush = 1;
+        } else if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS) {
+            brush = 2;
+        } else if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS) {
+            brush = 3;
+        } else if (glfwGetKey(window, GLFW_KEY_5) == GLFW_PRESS) {
+            brush = 4;
+        } else if (glfwGetKey(window, GLFW_KEY_6) == GLFW_PRESS) {
+            brush = 5;
+        } else if (glfwGetKey(window, GLFW_KEY_7) == GLFW_PRESS) {
+            brush = 6;
+        } else if (glfwGetKey(window, GLFW_KEY_8) == GLFW_PRESS) {
+            brush = 7;
+        } else if (glfwGetKey(window, GLFW_KEY_9) == GLFW_PRESS) {
+            brush = 8;
+        }
     }
 
     void HandleMouseInput(GLFWwindow *window) {
