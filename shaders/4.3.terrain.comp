@@ -102,7 +102,6 @@ uint morton3D(uvec3 p) {
     return part1by2(p.x) | (part1by2(p.y) << 1) | (part1by2(p.z) << 2);
 }
 
-
 void setData(uint m, uint value) {
     uint i = m >> 2u;
     uint byteShift = (m & 3u) * 8u;

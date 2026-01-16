@@ -40,18 +40,21 @@ const uint32_t NUM_GUINTS = (NUM_VUINTS)/(PASS_RES*PASS_RES*PASS_RES); // uints 
 // screen
 unsigned int SCR_WIDTH = 800;
 unsigned int SCR_HEIGHT = 600;
-unsigned int RES_MOD = 1;
+unsigned int RES_MOD = 2;
 unsigned int RES_WIDTH = SCR_WIDTH/RES_MOD;
 unsigned int RES_HEIGHT = SCR_HEIGHT/RES_MOD;
 
 unsigned int PRE_WIDTH = RES_WIDTH/PASS_RES;
 unsigned int PRE_HEIGHT = RES_HEIGHT/PASS_RES;
 
-float RENDER_DISTANCE = 768.0;
+float RENDER_DISTANCE = 512.0;
 
 unsigned int AO_DIAMETER = 5;
 unsigned int AO_SKIPPING = 2;
 unsigned int AO_CELLS = (AO_DIAMETER+1)*(AO_DIAMETER+1)*((AO_DIAMETER+1)/2);
+
+// physics
+unsigned int PHYSICS_SKIPPING = 11;
 
 int brushSize = 1;
 
@@ -105,6 +108,7 @@ int main() {
 
     // build and compile shader program
     Shader terrainShader("shaders/4.3.terrain.comp");
+    Shader physicsShader("shaders/4.3.physics.comp");
     Shader terrainMaskShader("shaders/4.3.terrainmask.comp");
     Shader precomputesShader("shaders/4.3.precomputes.comp");
     Shader lowResShader("shaders/4.3.lowrespass.comp");
@@ -164,7 +168,7 @@ int main() {
     // generate terrain
     terrainMaskShader.use();
 
-    // dispatch compute shader threads, based on thread pool size of 64.
+    // dispatch compute shader threads, based on thread pool size of 64. Second 4 is because only one thread per chunk is dispatched.
     glDispatchCompute((AXIS_SIZE)/(4*PASS_RES), (AXIS_SIZE)/(4*PASS_RES), (AXIS_SIZE)/(4*PASS_RES));
 
     // make sure writes are visible to everything else
@@ -174,7 +178,8 @@ int main() {
     float deltaTime = 0.0f;
     float lastTime = 0.0f;
     int lastClick = 0;
-    int frameMod = 0;
+    int AOframeMod = 0;
+    int physicsFrameMod = 0;
 
     while (!glfwWindowShouldClose(window))
     {
@@ -204,9 +209,21 @@ int main() {
             
             glDispatchCompute((brushSize+3)/4, (brushSize+3)/4, (brushSize+3)/4);
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-            //std::cout<<(Player.click)<<std::endl;
         }
         lastClick = Player.click;
+
+        // physics tick speed.
+        physicsFrameMod++;
+        physicsFrameMod = physicsFrameMod % PHYSICS_SKIPPING;
+
+        // physics pass.
+        if (physicsFrameMod == 0) {
+        physicsShader.use();
+        physicsShader.setFloat("iTime", currentTime);
+        // first *4 is to fit in thread pool, second is to fit in chunk. Physics is done per chunk.
+        glDispatchCompute(AXIS_SIZE/(4*4), AXIS_SIZE/(4*4), AXIS_SIZE/(4*4));
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+        }
 
         // low res pass.
         lowResShader.use();
@@ -226,14 +243,14 @@ int main() {
         //glBindFramebuffer(GL_FRAMEBUFFER, 0); // default framebuffer
     
         //glClear(GL_COLOR_BUFFER_BIT);
-        
-        // calculates offset for AO frame skipping.
-        frameMod++; // increment framemod
-        frameMod = frameMod % AO_SKIPPING;
+
+        // calculates offset for AO frame skipping and physics ticks?.
+        AOframeMod++; // increment framemod
+        AOframeMod = AOframeMod % AO_SKIPPING;
 
         // high res pass.
         highResShader.use();
-        highResShader.setInt("AOframeMod", frameMod);
+        highResShader.setInt("AOframeMod", AOframeMod);
         highResShader.setFloat("pPosX", Player.posX);
         highResShader.setFloat("pPosY", Player.posY);
         highResShader.setFloat("pPosZ", Player.posZ);
