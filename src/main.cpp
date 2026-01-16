@@ -13,6 +13,7 @@
 // functions
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window);
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processPlayer(PlayerController Player, Shader lowRes, Shader highRes);
 void updateSettings();
 
@@ -39,7 +40,7 @@ const uint32_t NUM_GUINTS = (NUM_VUINTS)/(PASS_RES*PASS_RES*PASS_RES); // uints 
 // screen
 unsigned int SCR_WIDTH = 800;
 unsigned int SCR_HEIGHT = 600;
-unsigned int RES_MOD = 2;
+unsigned int RES_MOD = 1;
 unsigned int RES_WIDTH = SCR_WIDTH/RES_MOD;
 unsigned int RES_HEIGHT = SCR_HEIGHT/RES_MOD;
 
@@ -52,23 +53,22 @@ unsigned int AO_DIAMETER = 5;
 unsigned int AO_SKIPPING = 2;
 unsigned int AO_CELLS = (AO_DIAMETER+1)*(AO_DIAMETER+1)*((AO_DIAMETER+1)/2);
 
+int brushSize = 1;
+
 // buffer sizes
 const size_t SSBO0_SIZE = sizeof(GLuint) * (NUM_VUINTS);
 const size_t SSBO1_SIZE = sizeof(GLuint) * (NUM_GUINTS);
 const size_t SSBO2_SIZE = 2*sizeof(GLuint) + sizeof(GL_INT_VEC3)*6*AO_CELLS; // cells amount, plus rectangle of 
 
 int main() {
-    std::string userInput;
+    bool respond = true;
+    while (respond) {
+        std::string userInput;
 
-    std::cout << "Generate World (new) or Load File (load)?" << std::endl;
-    std::getline(std::cin, userInput); // read line of input
-
-    if (userInput == "new") {
-        
-    } else {
-        return 0;
+        std::cout << "Generate World (new) or Load File (load)?" << std::endl;
+        std::getline(std::cin, userInput); // read line of input
+        if (userInput == "new") break;
     }
-
 
     // glfw: initialize and configure
     glfwInit();
@@ -190,8 +190,11 @@ int main() {
         // block editing. 
         if (Player.click != 0 && lastClick != Player.click) {
             blockEditShader.use();
+            glfwSetScrollCallback(window, scroll_callback);
+
             blockEditShader.setBool("click", (Player.click==1));
             blockEditShader.setInt("brush", Player.brush);
+            blockEditShader.setInt("brushSize", brushSize);
             blockEditShader.setFloat("pPosX", Player.posX);
             blockEditShader.setFloat("pPosY", Player.posY);
             blockEditShader.setFloat("pPosZ", Player.posZ);
@@ -199,7 +202,7 @@ int main() {
             blockEditShader.setFloat("pDirY", Player.dirY);
             blockEditShader.setFloat("pDirZ", Player.dirZ);
             
-            glDispatchCompute(16, 16, 16);
+            glDispatchCompute((brushSize+3)/4, (brushSize+3)/4, (brushSize+3)/4);
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             //std::cout<<(Player.click)<<std::endl;
         }
@@ -320,6 +323,14 @@ void updateSettings() {
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     
     glUniform1i(glGetUniformLocation(screen.ID, "screen"), 0); // set sampler uniform.
+}
+
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+    if (yoffset > 0) {
+        if (brushSize < 128) brushSize ++;
+    } else {
+        if (brushSize > 1) brushSize --;
+    }
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes

@@ -19,6 +19,7 @@ private:
     float pitch = 0.0f;
     // adjust sensitivity as needed
     float sensitivity = 0.001f;
+
 public:
     // up direction
     float upX = 0.0f, upY = 1.0f, upZ = 0.0f;

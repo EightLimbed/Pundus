@@ -25,6 +25,7 @@ uniform float pDirZ;
 // input
 uniform bool click;
 uniform int brush;
+uniform int brushSize;
 
 // time
 uniform float iTime;
@@ -32,8 +33,6 @@ uniform float iTime;
 // constants
 const float passRes = 4.0;
 const uint maskAmount = uint(passRes*passRes*passRes)/4u;
-
-const uvec3 brushSizes[3] = {uvec3(1,1,1), uvec3(3,3,3), uvec3(7,7,7)};
 
 // block data getter
 uint getData(uint m) {
@@ -97,8 +96,8 @@ vec3 getRayDir(vec2 fragCoord, vec2 res, vec3 lookAt, float zoom) {
 }
 
 void main() {
-    if (gl_GlobalInvocationID.x >= brushSizes[brush].x || gl_GlobalInvocationID.y >= brushSizes[brush].y || gl_GlobalInvocationID.z >= brushSizes[brush].z) return;
-    ivec3 offset = ivec3(gl_GlobalInvocationID)-ivec3(brushSizes[brush]/2);
+    ivec3 offset = ivec3(gl_GlobalInvocationID)-ivec3(brushSize/2);
+    if (length(offset) > brushSize/2) return;
     // camera setup.
     vec3 ro = vec3(pPosX,pPosY,pPosZ);
     vec3 rd = vec3(pDirX, pDirY, pDirZ);
@@ -141,8 +140,9 @@ void main() {
             // placing
             } else {
                 // recalculate with normal offset.
-                m = morton3D(vp-normal-offset);
-                cm = morton3D(ivec3(floor(vec3(vp-normal-offset)/passRes))) % 16777216;
+                ivec3 up = vp-normal*(brushSize+1)/2-offset;
+                m = morton3D(up);
+                cm = morton3D(ivec3(floor(vec3(up)/passRes))) % 16777216;
                 setData(m, 3u);
                 recalcMask(cm);
                 return;
