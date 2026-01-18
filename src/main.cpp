@@ -40,21 +40,21 @@ const uint32_t NUM_GUINTS = (NUM_VUINTS)/(PASS_RES*PASS_RES*PASS_RES); // uints 
 // screen
 unsigned int SCR_WIDTH = 800;
 unsigned int SCR_HEIGHT = 600;
-unsigned int RES_MOD = 2;
+unsigned int RES_MOD = 1;
 unsigned int RES_WIDTH = SCR_WIDTH/RES_MOD;
 unsigned int RES_HEIGHT = SCR_HEIGHT/RES_MOD;
 
 unsigned int PRE_WIDTH = RES_WIDTH/PASS_RES;
 unsigned int PRE_HEIGHT = RES_HEIGHT/PASS_RES;
 
-float RENDER_DISTANCE = 512.0;
+float RENDER_DISTANCE = 768.0;
 
 unsigned int AO_DIAMETER = 5;
 unsigned int AO_SKIPPING = 2;
 unsigned int AO_CELLS = (AO_DIAMETER+1)*(AO_DIAMETER+1)*((AO_DIAMETER+1)/2);
 
 // physics
-unsigned int PHYSICS_SKIPPING = 11;
+unsigned int PHYSICS_SKIPPING = 1;
 
 int brushSize = 1;
 

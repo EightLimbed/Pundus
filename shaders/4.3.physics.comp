@@ -16,17 +16,16 @@ layout(rgba32f, binding=0) uniform image2D prePass;
 uniform float iTime;
 
 // constants
-const float passRes = 4.0;
+const int passRes = 4;
 const uint maskAmount = uint(passRes*passRes*passRes)/4u;
 
 // 0 for solid, 1 for powder, 2 for water.
 const int dataID[8] = {0, 0, 0, 0, 0, 0, 1, 2};
 
-// position offsets for powders (check 5 blocks directly underneath block to move to).
-const ivec3 sOffsets[5] = {ivec3(0,-1,0), ivec3(0,-1,1), ivec3(0,-1,-1), ivec3(1,-1,0), ivec3(-1,-1,0)};
+// position offsets (check 9 blocks directly underneath and beside block to move to for liquids, or only underneath for powders).
+const ivec3 offsets[9] = {ivec3(0,-1,0), ivec3(0,-1,1), ivec3(0,-1,-1), ivec3(1,-1,0), ivec3(-1,-1,0), ivec3(0,0,1), ivec3(0,0,-1), ivec3(1,0,0), ivec3(-1,0,0)};
 
-// position offsets for liquids (check 9 blocks directly underneath and beside block to move to).
-const ivec3 lOffsets[9] = {ivec3(0,-1,0), ivec3(0,-1,1), ivec3(0,-1,-1), ivec3(1,-1,0), ivec3(-1,-1,0), ivec3(0,0,1), ivec3(0,0,-1), ivec3(1,0,0), ivec3(-1,0,0)};
+const int offsetSizes[2] = {5,9};
 
 // chunk mask getter
 bool checkChunk(uint m) {
@@ -88,9 +87,44 @@ uint morton3D(uvec3 p) {
 }
 
 void main() {
-    uvec3 id = gl_GlobalInvocationID;
-    uint m = morton3D(id);
-    if (!checkChunk(m)) return;
-    setData(morton3D(id*4), 5);
-    recalcMask(m);
+    ivec3 cp = ivec3(gl_GlobalInvocationID);
+    uint cm = morton3D(cp);
+    recalcMask(cm);
+    if (!checkChunk(cm)) return; // early out on empty chunks.
+
+    // physics.
+    bool recalc = false; // flag for recalcutation necessity.
+    // loops over blocks in chunk
+    for (int x = 0; x < passRes; x++) {
+    for (int y = 0; y < passRes; y++) {
+    for (int z = 0; z < passRes; z++) {
+        //setData(morton3D(cp*4-ivec3(x,y,z)), 5);
+
+        ivec3 vp = cp*4+ivec3(x,y,z); // voxel position
+        uint m = morton3D(vp); // voxel index
+
+        uint data = getData(m); // voxel data
+
+        int pID = dataID[data-1];
+        if (data == 0u) continue; // continue if air.
+        else if (pID == 0) continue; // continue if not physics particle.
+
+        // iterate over positions around voxel to check for movement.
+        for (int i = 0; i < offsetSizes[pID-1]; i++) {
+            ivec3 mvp = vp + offsets[i]; // voxel check position
+            uint mm = morton3D(mvp); // voxel check index
+            uint mData = getData(mm); // voxel check data
+            if (mData == 0u) { // if checked block empty
+                // move voxel.
+                setData(m, 0u);
+                setData(mm, data);
+                recalc = true;
+                break;
+            }
+        }
+    }
+    }
+    }
+
+    if (recalc) recalcMask(cm);
 }
