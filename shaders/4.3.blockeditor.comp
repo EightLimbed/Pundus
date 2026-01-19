@@ -129,7 +129,7 @@ void main() {
 
         uint m = morton3D(vp);
         uint cm = morton3D(ivec3(floor(vec3(vp)/passRes))) % 16777216;
-        if (getData(m) != 0u) {
+        if (getData(m) > 0u) {
             // breaking
             if (click) {
                 m = morton3D(vp-offset);

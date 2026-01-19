@@ -15,6 +15,11 @@ layout(rgba32f, binding=0) uniform image2D prePass;
 // time
 uniform float iTime;
 
+// player
+uniform int cPPosX;
+//uniform int cPPosY;
+uniform int cPPosZ;
+
 // constants
 const int passRes = 4;
 const uint maskAmount = uint(passRes*passRes*passRes)/4u;
@@ -87,18 +92,16 @@ uint morton3D(uvec3 p) {
 }
 
 void main() {
-    ivec3 cp = ivec3(gl_GlobalInvocationID);
+    ivec3 cp = ivec3(gl_GlobalInvocationID)+ivec3(cPPosX,0,cPPosZ);
     uint cm = morton3D(cp);
     recalcMask(cm);
     if (!checkChunk(cm)) return; // early out on empty chunks.
 
     // physics.
-    bool recalc = false; // flag for recalcutation necessity.
     // loops over blocks in chunk
     for (int x = 0; x < passRes; x++) {
     for (int y = 0; y < passRes; y++) {
     for (int z = 0; z < passRes; z++) {
-        //setData(morton3D(cp*4-ivec3(x,y,z)), 5);
 
         ivec3 vp = cp*4+ivec3(x,y,z); // voxel position
         uint m = morton3D(vp); // voxel index
@@ -106,8 +109,8 @@ void main() {
         uint data = getData(m); // voxel data
 
         int pID = dataID[data-1];
-        if (data == 0u) continue; // continue if air.
-        else if (pID == 0) continue; // continue if not physics particle.
+        if (data == 0u) continue; // skip if air.
+        else if (pID == 0) continue; // skip if not physics particle.
 
         // iterate over positions around voxel to check for movement.
         for (int i = 0; i < offsetSizes[pID-1]; i++) {
@@ -118,13 +121,10 @@ void main() {
                 // move voxel.
                 setData(m, 0u);
                 setData(mm, data);
-                recalc = true;
                 break;
             }
         }
     }
     }
     }
-
-    if (recalc) recalcMask(cm);
 }

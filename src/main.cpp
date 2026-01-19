@@ -31,18 +31,18 @@ GLuint screenTex; // screen texture
 // SETTINGS
 
 // world
-const uint32_t AXIS_SIZE = 1024;
-const uint32_t PASS_RES = 4; // occupancy mask width, and step size of low res pass.
-const uint32_t NUM_VOXELS = AXIS_SIZE * AXIS_SIZE * AXIS_SIZE;
-const uint32_t NUM_VUINTS = (NUM_VOXELS + 3) / 4; // ceil division, amount of uints total.
-const uint32_t NUM_GUINTS = (NUM_VUINTS)/(PASS_RES*PASS_RES*PASS_RES); // uints per group for low res pass.
+const unsigned int AXIS_SIZE = 1024;
+const unsigned int PASS_RES = 4; // occupancy mask width, and step size of low res pass.
+const unsigned int NUM_VOXELS = AXIS_SIZE * AXIS_SIZE * AXIS_SIZE;
+const unsigned int NUM_VUINTS = (NUM_VOXELS + 3) / 4; // ceil division, amount of uints total.
+const unsigned int NUM_GUINTS = (NUM_VUINTS)/(PASS_RES*PASS_RES*PASS_RES); // uints per group for low res pass.
 
 // screen
 unsigned int SCR_WIDTH = 800;
 unsigned int SCR_HEIGHT = 600;
-unsigned int RES_MOD = 1;
-unsigned int RES_WIDTH = SCR_WIDTH/RES_MOD;
-unsigned int RES_HEIGHT = SCR_HEIGHT/RES_MOD;
+float RES_MOD = 1.0;
+unsigned int RES_WIDTH = int(float(SCR_WIDTH)/RES_MOD);
+unsigned int RES_HEIGHT = int(float(SCR_HEIGHT)/RES_MOD);
 
 unsigned int PRE_WIDTH = RES_WIDTH/PASS_RES;
 unsigned int PRE_HEIGHT = RES_HEIGHT/PASS_RES;
@@ -54,8 +54,9 @@ unsigned int AO_SKIPPING = 2;
 unsigned int AO_CELLS = (AO_DIAMETER+1)*(AO_DIAMETER+1)*((AO_DIAMETER+1)/2);
 
 // physics
-unsigned int PHYSICS_SKIPPING = 1;
+unsigned int SIM_AXIS_SIZE = 512; // only does x and z, physics simulated always vertically
 
+// brushes
 int brushSize = 1;
 
 // buffer sizes
@@ -179,7 +180,6 @@ int main() {
     float lastTime = 0.0f;
     int lastClick = 0;
     int AOframeMod = 0;
-    int physicsFrameMod = 0;
 
     while (!glfwWindowShouldClose(window))
     {
@@ -212,18 +212,15 @@ int main() {
         }
         lastClick = Player.click;
 
-        // physics tick speed.
-        physicsFrameMod++;
-        physicsFrameMod = physicsFrameMod % PHYSICS_SKIPPING;
-
         // physics pass.
-        if (physicsFrameMod == 0) {
         physicsShader.use();
         physicsShader.setFloat("iTime", currentTime);
+        physicsShader.setInt("cPPosX", ((int(Player.posX)-SIM_AXIS_SIZE/2))/PASS_RES);
+        //physicsShader.setInt("cPPosY", ((int(Player.posY)-SIM_AXIS_SIZE/2))/PASS_RES);
+        physicsShader.setInt("cPPosZ", ((int(Player.posZ)-SIM_AXIS_SIZE/2))/PASS_RES);
         // first *4 is to fit in thread pool, second is to fit in chunk. Physics is done per chunk.
-        glDispatchCompute(AXIS_SIZE/(4*4), AXIS_SIZE/(4*4), AXIS_SIZE/(4*4));
+        glDispatchCompute(SIM_AXIS_SIZE/(4*PASS_RES), AXIS_SIZE/(4*PASS_RES), SIM_AXIS_SIZE/(4*PASS_RES));
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-        }
 
         // low res pass.
         lowResShader.use();
