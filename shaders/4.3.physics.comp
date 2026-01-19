@@ -93,7 +93,7 @@ uint morton3D(uvec3 p) {
 
 void main() {
     ivec3 cp = ivec3(gl_GlobalInvocationID)+ivec3(cPPosX,0,cPPosZ);
-    uint cm = morton3D(cp);
+    uint cm = morton3D(cp) % 16777216;
     recalcMask(cm);
     if (!checkChunk(cm)) return; // early out on empty chunks.
 
