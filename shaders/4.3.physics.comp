@@ -25,12 +25,12 @@ const int passRes = 4;
 const uint maskAmount = uint(passRes*passRes*passRes)/4u;
 
 // 0 for solid, 1 for powder, 2 for water.
-const int dataID[8] = {0, 0, 0, 0, 0, 0, 1, 2};
+const int dataID[10] = {2, 2, 2, 2, 2, 2, 2, 2, 0, 0};
 
 // position offsets (check 9 blocks directly underneath and beside block to move to for liquids, or only underneath for powders).
-const ivec3 offsets[9] = {ivec3(0,-1,0), ivec3(0,-1,1), ivec3(0,-1,-1), ivec3(1,-1,0), ivec3(-1,-1,0), ivec3(0,0,1), ivec3(0,0,-1), ivec3(1,0,0), ivec3(-1,0,0)};
+const ivec3 offsets[8] = {ivec3(0,-1,1), ivec3(0,-1,-1), ivec3(1,-1,0), ivec3(-1,-1,0), ivec3(0,0,1), ivec3(0,0,-1), ivec3(1,0,0), ivec3(-1,0,0)};
 
-const int offsetSizes[2] = {5,9};
+const int offsetSizes[2] = {4,8};
 
 // chunk mask getter
 bool checkChunk(uint m) {
@@ -112,17 +112,36 @@ void main() {
         if (data == 0u) continue; // skip if air.
         else if (pID == 0) continue; // skip if not physics particle.
 
-        // iterate over positions around voxel to check for movement.
-        for (int i = 0; i < offsetSizes[pID-1]; i++) {
-            ivec3 mvp = vp + offsets[i]; // voxel check position
-            uint mm = morton3D(mvp); // voxel check index
-            uint mData = getData(mm); // voxel check data
-            if (mData == 0u) { // if checked block empty
-                // move voxel.
-                setData(m, 0u);
-                setData(mm, data);
-                break;
+        ivec3 fvp = vp;
+        fvp.y--;
+        uint fm = morton3D(fvp);
+        bool grounded = getData(fm) > 0u; // checks if voxel below.
+
+        // iterate over positions around voxel to check for non vertical movement.
+        if (grounded) {
+            for (int i = 0; i < offsetSizes[pID-1]; i++) {
+                ivec3 mvp = vp + offsets[i]; // voxel check position
+                uint mm = morton3D(mvp); // voxel check index
+                uint mData = getData(mm); // voxel check data
+                if (mData == 0u) { // if checked block empty
+                    // move voxel.
+                    setData(m, 0u);
+                    setData(mm, data);
+                    break;
+                }
             }
+        } else { // voxel falls multiple tiles downwards in one frame.
+            for (int i = 0; i < 5; i++) {
+                fvp.y--;
+                fm = morton3D(fvp);
+                if (getData(fm) > 0u) {
+                    fvp.y++;
+                    fm = morton3D(fvp);
+                    break;
+                }
+            }
+            setData(m, 0u);
+            setData(fm, data);
         }
     }
     }
