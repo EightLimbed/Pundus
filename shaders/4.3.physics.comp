@@ -131,17 +131,17 @@ void main() {
                 }
             }
         } else { // voxel falls multiple tiles downwards in one frame.
-            for (int i = 0; i < 5; i++) {
+            uint lfm = fm; // last falling, to go back to upon collision.
+            for (int i = 0; i < 4; i++) {
                 fvp.y--;
                 fm = morton3D(fvp);
                 if (getData(fm) > 0u) {
-                    fvp.y++;
-                    fm = morton3D(fvp);
                     break;
                 }
+                lfm = fm;
             }
             setData(m, 0u);
-            setData(fm, data);
+            setData(lfm, data);
         }
     }
     }

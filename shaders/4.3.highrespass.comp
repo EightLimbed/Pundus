@@ -246,20 +246,19 @@ void main() {
             vec3 c = colors[data-1];
             if (oldColor != c) {
                 attenuation += t;
-                color += c*t;
+                float skyLight = getSkyLight(vp, normal, rd, vec3(cos(iTime*0.1), 0.717,sin(iTime*0.1))); // light from sun direction.
+                float ambientOcclusion = getAmbientOcclusion(vp, normal);
+                vec3 shaded = c*ambientOcclusion*skyLight; // shading.
+                color += shaded*t;
             }
             oldColor = c;
-        }
+        } //else oldColor = vec3(0.0);
 
         if (attenuation >= 1.0) {
-             // -1 to go to 0 in array when 0 is air.
-            float skyLight = getSkyLight(vp, normal, rd, vec3(cos(iTime*0.1), 0.717,sin(iTime*0.1))); // light from sun direction.
-            float ambientOcclusion = getAmbientOcclusion(vp, normal);
-            vec3 shaded = color*ambientOcclusion*skyLight/attenuation; // shading.
             // apply distance fog.
             float percent = d/float(renderDist);
-            float atten = pow(percent, 8.0);
-            imageStore(screen, fragCoord, vec4(shaded * (1.0 - atten) + atten * colors[colorLen], 1.0));
+            float fog = pow(percent, 8.0);
+            imageStore(screen, fragCoord, vec4(color*(1.0 - fog) + fog * colors[colorLen], 1.0));
             return;
         }
 
