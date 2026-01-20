@@ -47,6 +47,8 @@ uniform float renderDist = 1024.0;
 // constants
 const float passRes = 4.0;
 const vec3 colors[10] = {vec3(0.1,0.7,0.1), vec3(0.1,0.8,0.0), vec3(1.0,0.3,0.5), vec3(1.0,0.5,0.1), vec3(0.6,0.3,0.0), vec3(0.5,0.5,0.5), vec3(0.5,0.5,0.1), vec3(0.2,0.8,1.0), vec3(1.0), vec3(0.4,0.6,1.0)};
+const float transparencies[10] = {1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.5,1.0,0.9};
+
 
 // precompute constants
 const ivec2 nOffsets[4] = {ivec2(0,1), ivec2(0,-1), ivec2(1,0), ivec2(-1,0)}; // offsets for low res pass sampling.
@@ -99,8 +101,9 @@ float getAmbientOcclusion(ivec3 vp, vec3 normal) {
 
         uint m = morton3D(vp - offset);
         uint data = getData(m);
+        float t = transparencies[data-1];
         if (data > 0u) {
-            occ -= AOchange;
+            occ -= AOchange*t; // adjusted for block transparency, squared to account for skylight.
         }
     }
     return occ;
@@ -223,21 +226,38 @@ void main() {
         normal = vec3(0.0,0.0,stride.z);
     }
 
+    float attenuation = 0.0;
+    vec3 color = vec3(0.0);
+    vec3 oldColor = vec3(0.0);
+
     for (int i = 0; i < 10000; i++) {
 
-        float t = distance(ro,vp)+dist;
-        if (t > renderDist) return; // no artifact
+        float d = distance(ro,vp)+dist;
+        if (d > renderDist) return; // no artifact
 
         // check voxel
         uint m = morton3D(vp);
         uint data = getData(m);
+        
+
+        // attenuate based on color and transparency.
         if (data > 0u) {
-            vec3 c = colors[data-1]; // -1 to go to 0 in array when 0 is air.
-            float skyLight = getSkyLight(vp, normal, rd, vec3(cos(1.0*0.5), 0.717,sin(1.0*0.5))); // light from sun direction.
+            float t = transparencies[data-1];
+            vec3 c = colors[data-1];
+            if (oldColor != c) {
+                attenuation += t;
+                color += c*t;
+            }
+            oldColor = c;
+        }
+
+        if (attenuation >= 1.0) {
+             // -1 to go to 0 in array when 0 is air.
+            float skyLight = getSkyLight(vp, normal, rd, vec3(cos(iTime*0.1), 0.717,sin(iTime*0.1))); // light from sun direction.
             float ambientOcclusion = getAmbientOcclusion(vp, normal);
-            vec3 shaded = c*ambientOcclusion*skyLight; // shading.
+            vec3 shaded = color*ambientOcclusion*skyLight/attenuation; // shading.
             // apply distance fog.
-            float percent = t/float(renderDist);
+            float percent = d/float(renderDist);
             float atten = pow(percent, 8.0);
             imageStore(screen, fragCoord, vec4(shaded * (1.0 - atten) + atten * colors[colorLen], 1.0));
             return;

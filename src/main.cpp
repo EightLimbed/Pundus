@@ -54,7 +54,7 @@ unsigned int AO_SKIPPING = 2;
 unsigned int AO_CELLS = (AO_DIAMETER+1)*(AO_DIAMETER+1)*((AO_DIAMETER+1)/2);
 
 // physics
-unsigned int SIM_AXIS_SIZE = 512; // only does x and z, physics simulated always vertically
+unsigned int SIM_AXIS_SIZE = 384; // only does x and z, physics simulated always vertically
 
 // brushes
 int brushSize = 1;

@@ -143,7 +143,7 @@ void main() {
                 ivec3 up = vp-normal*(brushSize+1)/2-offset;
                 m = morton3D(up);
                 cm = morton3D(ivec3(floor(vec3(up)/passRes))) % 16777216;
-                setData(m, 7u);
+                setData(m, brush+1);
                 recalcMask(cm);
                 return;
             }
