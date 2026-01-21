@@ -10,7 +10,7 @@ layout(std430, binding = 1) buffer OccuMask {
     uint occuMask[];
 };
 
-layout(std430, binding = 2) buffer LightingData {
+layout(std430, binding = 2) buffer Precomputes {
     uint AOcells;
     uint AOpart;
     float AOchange;
@@ -229,37 +229,39 @@ void main() {
     float attenuation = 0.0;
     vec3 color = vec3(0.0);
     vec3 oldColor = vec3(0.0);
+    float fog = 1.0;
 
     for (int i = 0; i < 10000; i++) {
 
         float d = distance(ro,vp)+dist;
-        if (d > renderDist) return; // no artifact
+        if (d > renderDist) break; // no artifact
 
         // check voxel
         uint m = morton3D(vp);
         uint data = getData(m);
         
-
         // attenuate based on color and transparency.
         if (data > 0u) {
+            // get color.
             float t = transparencies[data-1];
             vec3 c = colors[data-1];
+            
+            // apply fog.
+            float percent = d/float(renderDist);
+            fog = pow(percent, 8.0);
+
+            // if new transparent block, apply stuff.
             if (oldColor != c) {
                 attenuation += t;
                 float skyLight = getSkyLight(vp, normal, rd, vec3(cos(iTime*0.1), 0.717,sin(iTime*0.1))); // light from sun direction.
-                float ambientOcclusion = getAmbientOcclusion(vp, normal);
-                vec3 shaded = c*ambientOcclusion*skyLight; // shading.
+                vec3 shaded = c*skyLight; // shading.
                 color += shaded*t;
             }
             oldColor = c;
-        } //else oldColor = vec3(0.0);
+        }
 
-        if (attenuation >= 1.0) {
-            // apply distance fog.
-            float percent = d/float(renderDist);
-            float fog = pow(percent, 8.0);
-            imageStore(screen, fragCoord, vec4(color*(1.0 - fog) + fog * colors[colorLen], 1.0));
-            return;
+        if (attenuation >= 1.0) {            
+            break;
         }
 
 		if (tMax.x <= tMax.y && tMax.x <= tMax.z) { // X is closest
@@ -275,6 +277,9 @@ void main() {
             tMax.z += dr.z;
             normal = vec3(0.0,0.0,stride.z);
 		}
-
 	}
+    
+    // apply ambient occlusion.
+    float ambientOcclusion = getAmbientOcclusion(vp, normal);
+    imageStore(screen, fragCoord, vec4(ambientOcclusion*color*(1.0 - fog) + fog * colors[colorLen], 1.0));
 }
