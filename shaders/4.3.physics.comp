@@ -97,14 +97,27 @@ void main() {
     recalcMask(cm);
     if (!checkChunk(cm)) return; // early out on empty chunks.
 
+    // morton table precompute
+    uint mTable[6][8][6];
+    // loops over possible affected indices so they are only computed once.
+    for (int x = -1; x < passRes+1; x++) { // one outside each edge
+    for (int y = 1-passRes; y < passRes; y++) { // 4 below current chunk as well because of accelerated dropping.
+    for (int z = -1; z < passRes+1; z++) {  // one outside each edge
+        ivec3 vp = cp*4+ivec3(x,y,z); // voxel position
+        uint m = morton3D(vp); // voxel index
+        mTable[x+1][y+4][z+1] = m;
+    }
+    }
+    }
+
     // physics.
     // loops over blocks in chunk
     for (int x = 0; x < passRes; x++) {
     for (int y = 0; y < passRes; y++) {
     for (int z = 0; z < passRes; z++) {
 
-        ivec3 vp = cp*4+ivec3(x,y,z); // voxel position
-        uint m = morton3D(vp); // voxel index
+        ivec3 lvp = ivec3(x,y,z); // local voxel position
+        uint m = mTable[lvp.x+1][lvp.y+4][lvp.z+1]; // voxel index
 
         uint data = getData(m); // voxel data
 
@@ -112,16 +125,16 @@ void main() {
         if (data == 0u) continue; // skip if air.
         else if (pID == 0) continue; // skip if not physics particle.
 
-        ivec3 fvp = vp;
+        ivec3 fvp = lvp;
         fvp.y--;
-        uint fm = morton3D(fvp);
+        uint fm = mTable[fvp.x+1][fvp.y+4][fvp.z+1];
         bool grounded = getData(fm) > 0u; // checks if voxel below.
 
         // iterate over positions around voxel to check for non vertical movement.
         if (grounded) {
             for (int i = 0; i < offsetSizes[pID-1]; i++) {
-                ivec3 mvp = vp + offsets[i]; // voxel check position
-                uint mm = morton3D(mvp); // voxel check index
+                ivec3 mvp = lvp + offsets[i]; // voxel check position
+                uint mm = mTable[mvp.x+1][mvp.y+4][mvp.z+1]; // voxel check index
                 uint mData = getData(mm); // voxel check data
                 if (mData == 0u) { // if checked block empty
                     // move voxel.
@@ -132,9 +145,9 @@ void main() {
             }
         } else { // voxel falls multiple tiles downwards in one frame.
             uint lfm = fm; // last falling, to go back to upon collision.
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < 2; i++) {
                 fvp.y--;
-                fm = morton3D(fvp);
+                fm = mTable[fvp.x+1][fvp.y+4][fvp.z+1];
                 if (getData(fm) > 0u) {
                     break;
                 }
