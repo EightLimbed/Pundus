@@ -101,7 +101,7 @@ void main() {
     uint mTable[6][8][6];
     // loops over possible affected indices so they are only computed once.
     for (int x = -1; x < passRes+1; x++) { // one outside each edge
-    for (int y = 1-passRes; y < passRes; y++) { // 4 below current chunk as well because of accelerated dropping.
+    for (int y = -3; y < passRes; y++) { // 2 below current chunk as well because of accelerated dropping.
     for (int z = -1; z < passRes+1; z++) {  // one outside each edge
         ivec3 vp = cp*4+ivec3(x,y,z); // voxel position
         uint m = morton3D(vp); // voxel index
@@ -127,14 +127,14 @@ void main() {
 
         ivec3 fvp = lvp;
         fvp.y--;
-        uint fm = mTable[fvp.x+1][fvp.y+4][fvp.z+1];
+        uint fm = mTable[fvp.x+1][fvp.y+3][fvp.z+1];
         bool grounded = getData(fm) > 0u; // checks if voxel below.
 
         // iterate over positions around voxel to check for non vertical movement.
         if (grounded) {
             for (int i = 0; i < offsetSizes[pID-1]; i++) {
                 ivec3 mvp = lvp + offsets[i]; // voxel check position
-                uint mm = mTable[mvp.x+1][mvp.y+4][mvp.z+1]; // voxel check index
+                uint mm = mTable[mvp.x+1][mvp.y+3][mvp.z+1]; // voxel check index
                 uint mData = getData(mm); // voxel check data
                 if (mData == 0u) { // if checked block empty
                     // move voxel.
@@ -147,7 +147,7 @@ void main() {
             uint lfm = fm; // last falling, to go back to upon collision.
             for (int i = 0; i < 2; i++) {
                 fvp.y--;
-                fm = mTable[fvp.x+1][fvp.y+4][fvp.z+1];
+                fm = mTable[fvp.x+1][fvp.y+3][fvp.z+1];
                 if (getData(fm) > 0u) {
                     break;
                 }
