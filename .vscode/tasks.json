@@ -13,6 +13,12 @@
                 "${workspaceFolder}/src/main.cpp",
                 "${workspaceFolder}/src/glad.c",
                 "-lglfw3dll",
+                "-lopengl32",
+                "-lgdi32",
+                "-lwinmm",
+                "-static",
+                "-static-libgcc",
+                "-static-libstdc++",
                 "-o",
                 "${workspaceFolder}/Pundus.exe"
             ],
