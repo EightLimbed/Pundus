@@ -11,6 +11,9 @@
 #include <cmath>
 #include <random>
 
+#include <filesystem>
+namespace fs = std::filesystem;
+
 // functions
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window);
@@ -37,6 +40,7 @@ const unsigned int PASS_RES = 4; // occupancy mask width, and step size of low r
 const unsigned int NUM_VOXELS = AXIS_SIZE * AXIS_SIZE * AXIS_SIZE;
 const unsigned int NUM_VUINTS = (NUM_VOXELS + 3) / 4; // ceil division, amount of uints total.
 const unsigned int NUM_GUINTS = (NUM_VUINTS)/(PASS_RES*PASS_RES*PASS_RES); // uints per group for low res pass.
+const std::string worldsPath  = "./Worlds"; 
 
 // screen
 unsigned int SCR_WIDTH = 800;
@@ -48,14 +52,14 @@ unsigned int RES_HEIGHT = int(float(SCR_HEIGHT)/RES_MOD);
 unsigned int PRE_WIDTH = RES_WIDTH/PASS_RES;
 unsigned int PRE_HEIGHT = RES_HEIGHT/PASS_RES;
 
-float RENDER_DISTANCE = 512.0;
+float RENDER_DISTANCE = 768.0;
 
 unsigned int AO_DIAMETER = 5;
 unsigned int AO_SKIPPING = 2;
 unsigned int AO_CELLS = (AO_DIAMETER+1)*(AO_DIAMETER+1)*((AO_DIAMETER+1)/2);
 
 // physics
-unsigned int SIM_AXIS_SIZE = 256; // only does x and z, physics simulated always vertically
+unsigned int SIM_AXIS_SIZE = 384; // only does x and z, physics simulated always vertically
 
 // brushes
 int brushSize = 1;
@@ -66,14 +70,38 @@ const size_t SSBO1_SIZE = sizeof(GLuint) * (NUM_GUINTS);
 const size_t SSBO2_SIZE = 2*sizeof(GLuint) + sizeof(GL_INT_VEC3)*6*AO_CELLS; // cells amount, plus rectangle of 
 
 int main() {
-    bool respond = true;
-    while (respond) {
-        std::string userInput;
+    std::string userInput;
 
-        std::cout << "Generate World (new) or Load File (load)?" << std::endl;
-        std::getline(std::cin, userInput); // read line of input
-        if (userInput == "new") break;
+    std::cout << "Type world name to load:" << std::endl;
+    std::vector<std::string> worldNames = {};
+
+    try {
+    // iterate over the entries in the directory
+    for (const auto& entry : fs::directory_iterator(worldsPath)) {
+        // check if the entry is a regular file and not a directory
+        if (fs::is_regular_file(entry.status()) && (entry.path().extension() == ".pun")) {
+            std::string str = entry.path().stem().string();
+            std::cout << str << std::endl;
+            worldNames.push_back(str);
+        }
     }
+    } catch (const fs::filesystem_error& ex) {
+        std::cerr << "Error accessing Worlds directory: " << ex.what() << std::endl;
+    }
+    std::cout << "To create world, type new name." << std::endl;
+    std::getline(std::cin, userInput); // read line of input
+
+    // check if world exists.
+    bool newWorld = true;
+    for (const std::string& name : worldNames) {
+        if (name == userInput) {
+            newWorld = false;
+            break;
+        }
+    }
+    std::string worldFilePath = "Worlds/"+userInput+".pun";
+    if (newWorld) std::cout << "Creating world: "<<worldFilePath<< std::endl;
+    else std::cout << "Loading world: "<<worldFilePath<< std::endl;
 
     // glfw: initialize and configure
     glfwInit();
@@ -158,14 +186,26 @@ int main() {
     // make sure writes are visible to everything else
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-    // generate terrain
-    terrainShader.use();
+    // if new world needed, create one, otherwise load file.
+    if (newWorld) {
+        // generate terrain
+        terrainShader.use();
 
-    // dispatch compute shader threads, based on thread pool size of 64.
-    glDispatchCompute(AXIS_SIZE/4, AXIS_SIZE/4, AXIS_SIZE/4);
+        // dispatch compute shader threads, based on thread pool size of 64.
+        glDispatchCompute(AXIS_SIZE/4, AXIS_SIZE/4, AXIS_SIZE/4);
 
-    // make sure writes are visible to everything else
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+        // make sure writes are visible to everything else
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    } else { // load.
+        std::vector<uint32_t> hostData(NUM_VUINTS);
+        std::ifstream inFile(worldFilePath, std::ios::binary);
+        inFile.read(reinterpret_cast<char*>(hostData.data()), SSBO0_SIZE);
+        inFile.close();
+        
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo0);
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, SSBO0_SIZE, hostData.data());
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    }
 
     // generate terrain
     terrainMaskShader.use();
@@ -293,6 +333,21 @@ int main() {
         glfwPollEvents();
     }
     std::cout << "FPS: " << 1.0/deltaTime << std::endl; // print fps at time of closing.
+
+    // save world to worlds file.
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo0);
+    void* ptr = glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, SSBO0_SIZE, GL_MAP_READ_BIT);
+    if (ptr) {
+        std::ofstream outFile(worldFilePath, std::ios::binary);
+        outFile.write(reinterpret_cast<char*>(ptr), SSBO0_SIZE);
+        outFile.close();
+        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER); // Unmap after use
+        std::cout<<"World saved to: "<<worldFilePath<<std::endl;
+    } else {
+        std::cout<<"failed to write"<<std::endl;
+    }
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
     // glfw: terminate, clearing all previously allocated GLFW resources.
     glfwTerminate();
     return 0;
