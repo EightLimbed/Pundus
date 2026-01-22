@@ -137,7 +137,8 @@ void main() {
         else if (float(id.y) >= height-10-grass) data = 5;
         else data = 6;
     }
-    else if (data == 0 && id.y < 128 && id.y > 0) data = 8; // pools of water.
+    else if (data == 0 && id.y < 156 && id.y > 0) data = 8; // pools of water.
+    else if (data == 0 && id.y == 156 && id.y > 0 && (id.x & 1) == 0 && (id.z & 1) == 1) data = 8; // with waves.
 
     setData(m, data); // sets voxel to a value proportional to height if within terrain
     

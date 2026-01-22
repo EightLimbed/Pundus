@@ -10,8 +10,34 @@ layout(std430, binding = 1) buffer OccuMask {
     uint occuMask[];
 };
 
-const uint passRes = 4u;
-const uint maskAmount = passRes*passRes*passRes/4;
+// constants
+const int passRes = 4;
+const uint maskAmount = passRes*passRes*passRes/4u;
+
+// player
+uniform int cPPosX = 0;
+//uniform int cPPosY;
+uniform int cPPosZ = 0;
+
+void recalcMask(uint m) { // pass chunk/mask index (cm) in to recalculate
+    // indexing for bitpacking
+    uint idx = m >> 5u; 
+    uint bit = m & 31u;
+    // every two uints checked as group to see if empty.
+    uint nm = m*maskAmount;
+    bool empty = true;
+    for (uint i = 0u; i < maskAmount; i++) {
+        if (blockData[nm+i] != 0u ) {
+            empty = false;
+            break;
+        }
+    }
+    if (empty) {
+        atomicOr(occuMask[idx], 1u << bit);
+    } else {
+        atomicAnd(occuMask[idx], ~(1u << bit));
+    }
+}
 
 // morton encoding/decoding
 uint part1by2(uint x) {
@@ -28,24 +54,7 @@ uint morton3D(uvec3 p) {
 }
 
 void main() {
-    uvec3 id = gl_GlobalInvocationID;
-    // morton
-    uint m = morton3D(id);
-    // indexing for bitpacking
-    uint idx = m >> 5u; 
-    uint bit = m & 31u;
-    // every two uints checked as group to see if empty.
-    uint nm = m*maskAmount;
-    bool empty = true;
-    for (uint i = 0u; i < maskAmount; i++) {
-        if (blockData[nm+i] != 0u) {
-            empty = false;
-            break;
-        }
-    }
-    if (empty) {
-        atomicOr(occuMask[idx], 1u << bit);
-    } else {
-        atomicAnd(occuMask[idx], ~(1u << bit));
-    }
+    ivec3 cp = ivec3(gl_GlobalInvocationID)+ivec3(cPPosX,0,cPPosZ);
+    uint cm = morton3D(cp) % 16777216;
+    recalcMask(cm);
 }

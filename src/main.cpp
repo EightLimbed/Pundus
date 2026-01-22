@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include <cmath>
+#include <random>
 
 // functions
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -175,6 +176,11 @@ int main() {
     // make sure writes are visible to everything else
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
+    // random number setup
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> dis(0, 450); // multiple of 13 and 5
+
     // render loop
     float deltaTime = 0.0f;
     float lastTime = 0.0f;
@@ -213,14 +219,25 @@ int main() {
         lastClick = Player.click;
 
         // physics pass.
+        for (int i = 0; i < 1; i++) {
         physicsShader.use();
-        physicsShader.setFloat("iTime", currentTime);
+        auto random_number = dis(gen);
+        physicsShader.setInt("random", random_number);
+        //physicsShader.setFloat("iTime", currentTime);
         physicsShader.setInt("cPPosX", ((int(Player.posX)-SIM_AXIS_SIZE/2))/PASS_RES);
-        //physicsShader.setInt("cPPosY", ((int(Player.posY)-SIM_AXIS_SIZE/2))/PASS_RES);
         physicsShader.setInt("cPPosZ", ((int(Player.posZ)-SIM_AXIS_SIZE/2))/PASS_RES);
         // first *4 is to fit in thread pool, second is to fit in chunk. Physics is done per chunk.
         glDispatchCompute(SIM_AXIS_SIZE/(4*PASS_RES), AXIS_SIZE/(4*PASS_RES), SIM_AXIS_SIZE/(4*PASS_RES));
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+        }
+
+        // generate terrain
+        terrainMaskShader.use();
+        terrainMaskShader.setInt("cPPosX", ((int(Player.posX)-SIM_AXIS_SIZE/2))/PASS_RES);
+        terrainMaskShader.setInt("cPPosZ", ((int(Player.posZ)-SIM_AXIS_SIZE/2))/PASS_RES);
+
+        // dispatch compute shader threads, based on thread pool size of 64. Second 4 is because only one thread per chunk is dispatched.
+        glDispatchCompute((SIM_AXIS_SIZE)/(4*PASS_RES), (AXIS_SIZE)/(4*PASS_RES), (SIM_AXIS_SIZE)/(4*PASS_RES));
 
         // low res pass.
         lowResShader.use();

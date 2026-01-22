@@ -189,9 +189,10 @@ void main() {
         dist = min(dist, imageLoad(prePass, texel+nOffsets[i]).x);
     }
 
-    imageStore(screen, fragCoord, vec4(colors[colorLen],1.0)); // background color.
-
-    if (dist > renderDist) return;
+    if (dist > renderDist) {
+        imageStore(screen, fragCoord, vec4(colors[colorLen],1.0)); // background color.
+        return;
+    }
 
     dist = max(dist-8.0, 0.0); // safety.
     //float depth = dist/1024.0;
@@ -255,7 +256,7 @@ void main() {
                 attenuation += t;
                 float skyLight = (data<colorLen) ? getSkyLight(vp, normal, rd, vec3(cos(iTime*0.1), 0.717,sin(iTime*0.1))) : 1.0; // light from sun direction.
                 vec3 shaded = c*skyLight; // shading.
-                color += shaded*t;
+                color += shaded*t*(1.0 - fog) + fog * colors[colorLen];
             }
             oldColor = c;
         }
@@ -282,5 +283,5 @@ void main() {
 
     // apply ambient occlusion.
     float ambientOcclusion = getAmbientOcclusion(vp, normal);
-    imageStore(screen, fragCoord, vec4(ambientOcclusion*color*(1.0 - fog) + fog * colors[colorLen], 1.0));
+    imageStore(screen, fragCoord, vec4(ambientOcclusion*color, 1.0));
 }
