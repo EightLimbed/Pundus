@@ -41,21 +41,21 @@ const unsigned int NUM_GUINTS = (NUM_VUINTS)/(PASS_RES*PASS_RES*PASS_RES); // ui
 // screen
 unsigned int SCR_WIDTH = 800;
 unsigned int SCR_HEIGHT = 600;
-float RES_MOD = 1.0;
+float RES_MOD = 2.0;
 unsigned int RES_WIDTH = int(float(SCR_WIDTH)/RES_MOD);
 unsigned int RES_HEIGHT = int(float(SCR_HEIGHT)/RES_MOD);
 
 unsigned int PRE_WIDTH = RES_WIDTH/PASS_RES;
 unsigned int PRE_HEIGHT = RES_HEIGHT/PASS_RES;
 
-float RENDER_DISTANCE = 768.0;
+float RENDER_DISTANCE = 512.0;
 
 unsigned int AO_DIAMETER = 5;
 unsigned int AO_SKIPPING = 2;
 unsigned int AO_CELLS = (AO_DIAMETER+1)*(AO_DIAMETER+1)*((AO_DIAMETER+1)/2);
 
 // physics
-unsigned int SIM_AXIS_SIZE = 384; // only does x and z, physics simulated always vertically
+unsigned int SIM_AXIS_SIZE = 256; // only does x and z, physics simulated always vertically
 
 // brushes
 int brushSize = 1;
@@ -358,7 +358,7 @@ void updateSettings() {
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
     if (yoffset > 0) {
-        if (brushSize < 128) brushSize ++;
+        if (brushSize < 32) brushSize ++;
     } else {
         if (brushSize > 1) brushSize --;
     }

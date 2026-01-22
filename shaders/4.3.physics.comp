@@ -31,9 +31,11 @@ const uint maskAmount = uint(passRes*passRes*passRes)/4u;
 const int dataID[10] = {0, 0, 0, 0, 0, 0, 1, 2, 0, 0};
 
 // position offsets (check 9 blocks directly underneath and beside block to move to for liquids, or only underneath for powders).
-const ivec3 offsets[2][5] = {{ivec3(0,-1,0), ivec3(0,-1,1), ivec3(0,-1,-1), ivec3(1,-1,0), ivec3(-1,-1,0)}, {ivec3(0,-1,0),ivec3(0,0,2), ivec3(0,0,-2), ivec3(2,0,0), ivec3(-2,0,0)}};
+// position offsets (check 9 blocks directly underneath and beside block to move to for liquids, or only underneath for powders).
+const ivec3 offsets[2][8] = {{ivec3(0,-1,1), ivec3(0,-1,-1), ivec3(1,-1,0), ivec3(-1,-1,0), ivec3(0,-1,1), ivec3(0,-1,-1), ivec3(1,-1,0), ivec3(-1,-1,0)},
+ {ivec3(0,-1,1), ivec3(0,-1,-1), ivec3(1,-1,0), ivec3(-1,-1,0), ivec3(0,0,2), ivec3(0,0,-2), ivec3(2,0,0), ivec3(-2,0,0)}};
 
-const int offsetSize = 5;
+const int offsetSize = 8;
 
 // chunk mask getter
 bool checkChunk(uint m) {
