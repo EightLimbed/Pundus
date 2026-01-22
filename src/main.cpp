@@ -59,7 +59,7 @@ unsigned int AO_SKIPPING = 2;
 unsigned int AO_CELLS = (AO_DIAMETER+1)*(AO_DIAMETER+1)*((AO_DIAMETER+1)/2);
 
 // physics
-unsigned int SIM_AXIS_SIZE = 384; // only does x and z, physics simulated always vertically
+unsigned int SIM_AXIS_SIZE = 256; // only does x and z, physics simulated always vertically
 
 // brushes
 int brushSize = 1;
@@ -70,9 +70,13 @@ const size_t SSBO1_SIZE = sizeof(GLuint) * (NUM_GUINTS);
 const size_t SSBO2_SIZE = 2*sizeof(GLuint) + sizeof(GL_INT_VEC3)*6*AO_CELLS; // cells amount, plus rectangle of 
 
 int main() {
+    // terminal loop.
+    while (true) {
+    // user input on startup.
     std::string userInput;
 
-    std::cout << "Type world name to load:" << std::endl;
+    std::cout << "To create world, type a name." << std::endl;
+    std::cout << "Or type a world name to load:" << std::endl;
     std::vector<std::string> worldNames = {};
 
     try {
@@ -88,7 +92,6 @@ int main() {
     } catch (const fs::filesystem_error& ex) {
         std::cerr << "Error accessing Worlds directory: " << ex.what() << std::endl;
     }
-    std::cout << "To create world, type new name." << std::endl;
     std::getline(std::cin, userInput); // read line of input
 
     // check if world exists.
@@ -219,7 +222,7 @@ int main() {
     // random number setup
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<int> dis(0, 450); // multiple of 13 and 5
+    std::uniform_int_distribution<int> dis(0, 512); // multiple of 8
 
     // render loop
     float deltaTime = 0.0f;
@@ -320,9 +323,6 @@ int main() {
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 
         // screen shader.
-        //glActiveTexture(GL_TEXTURE0); // binds screen texture as sampler
-        //glBindTexture(GL_TEXTURE_2D, screenTex);
-
         screenShader.use(); // uses screen shader.
         screenShader.setFloat("iTime", currentTime);
         
@@ -350,6 +350,7 @@ int main() {
 
     // glfw: terminate, clearing all previously allocated GLFW resources.
     glfwTerminate();
+    }
     return 0;
 }
 
