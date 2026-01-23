@@ -63,7 +63,7 @@ unsigned int SIM_AXIS_SIZE = 384; // only does x and z, physics simulated always
 unsigned int PHYSICS_TICKS = 2;
 
 // brushes
-int brushSize = 1;
+int brushSize = 16;
 
 // buffer sizes
 const size_t SSBO0_SIZE = sizeof(GLuint) * (NUM_VUINTS);
@@ -231,7 +231,7 @@ int main() {
             blockEditShader.setFloat("pDirY", Player.dirY);
             blockEditShader.setFloat("pDirZ", Player.dirZ);
             
-            glDispatchCompute((brushSize+3)/4, (brushSize+3)/4, (brushSize+3)/4);
+            glDispatchCompute(1, 1, 1);
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
         }
         lastClick = Player.click;
@@ -392,7 +392,7 @@ void updateSettings() {
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
     if (yoffset > 0) {
-        if (brushSize < 32) brushSize ++;
+        if (brushSize < 48) brushSize ++;
     } else {
         if (brushSize > 1) brushSize --;
     }
