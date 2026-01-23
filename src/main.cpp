@@ -3,6 +3,7 @@
 
 #include <classes/GLshader.h>
 #include <classes/PlayerController.h>
+#include <classes/StartupTUI.h>
 
 #include <iostream>
 #include <array>
@@ -40,7 +41,6 @@ const unsigned int PASS_RES = 4; // occupancy mask width, and step size of low r
 const unsigned int NUM_VOXELS = AXIS_SIZE * AXIS_SIZE * AXIS_SIZE;
 const unsigned int NUM_VUINTS = (NUM_VOXELS + 3) / 4; // ceil division, amount of uints total.
 const unsigned int NUM_GUINTS = (NUM_VUINTS)/(PASS_RES*PASS_RES*PASS_RES); // uints per group for low res pass.
-const std::string worldsPath  = "./Worlds"; 
 
 // screen
 unsigned int SCR_WIDTH = 800;
@@ -73,80 +73,12 @@ const size_t SSBO2_SIZE = 2*sizeof(GLuint) + sizeof(GL_INT_VEC3)*6*AO_CELLS; // 
 int main() {
     // MAIN LOOP
     while (true) {
-    
-    std::cout<<"\033[1m"<<"PUNDUS VOXEL ENGINE" <<"\033[0m"<<"\n"<<std::endl; // title
-    // terminal start loop.
     std::string userInput;
-    while (true) {
-    std::cout << "Type 'help' for a description and guide 'settings' for options, or 'worlds' to continue to worlds management." << "\n" << std::endl;
-    std::cout<<"Input: ";
-    std::getline(std::cin, userInput); // read line of input
-    if (userInput == "help") {
-        std::cout<<"\n\033[1m"<<"PUNDUS HELP" <<"\033[0m"<<"\n"<<std::endl; // title
-        std::cout<<"Pundus is a from-scratch voxel engine made with openGL and C++, with the purpose of enabling visualization and interaction with dynamic worlds."<<std::endl; // description
-        std::cout<<"It features a 1024^3 voxel environment with raytraced lighting, along with a tunable custom ambient occlusion algorithm. There is a rudimentary building system, along with a cellular automata fluid physics engine."<<std::endl; // features
-        std::cout<<"\nTo play, use WASD for movement in XZ plane, space to ascend, and shift to descend."<<std::endl; // how to play
-        std::cout<<"Use left and right click to place and break, and scroll wheel to resize interaction."<<std::endl; // how to play
-        std::cout<<"Other keys include number keys for changing block type, and P for toggling physics.\n"<<std::endl; // how to play
-    } else if (userInput == "settings") {
-        while (true) {
-        std::cout<<"\n\033[1m"<<"PUNDUS SETTINGS" <<"\033[0m"<<"\n"<<std::endl; // title
-        std::cout<<"Settings should be tuned to balance the programs performance with effect for on your computer. Type their keyword to access them:\n"<<std::endl;
-        std::cout<<"Resolution modifier: 'res'                 Currently at: "<<RES_MOD<<std::endl;
-        std::cout<<"Render distance: 'dist'                    Currently at: "<<RENDER_DISTANCE<<std::endl;
-        std::cout<<"Physics simulation distance: 'sim'         Currently at: "<<SIM_AXIS_SIZE<<std::endl;
-        std::cout<<"Physics ticks per frame: 'tick'            Currently at: "<<PHYSICS_TICKS<<std::endl;
-        std::cout<<"Ambient occlusion diameter: 'diam'         Currently at: "<<AO_DIAMETER<<std::endl;
-        std::cout<<"Ambient occlusion frame skipping: 'skip'   Currently at: "<<AO_SKIPPING<<std::endl;
-        std::cout<<"Exit settings: 'exit'"<<std::endl;
-        std::cout<<"\nSetting: ";
-        std::getline(std::cin, userInput); // read line of input
-        if (userInput == "exit") {
-            std::cout<<""<<std::endl;
-            break;
-        }
-        }
-        
-    } else break;
-    }
-
-    // world manager.
-    std::cout<<"\n\033[1m"<<"PUNDUS WORLD MANAGER" <<"\033[0m"<<"\n"<<std::endl; // title
-    std::cout << "To create world, type a new name." << std::endl;
-    std::vector<std::string> worldNames = {};
+    Menu Startup(&userInput, &RES_MOD, &RENDER_DISTANCE, &SIM_AXIS_SIZE, &PHYSICS_TICKS, &AO_DIAMETER, &AO_SKIPPING);
     
-    if (!fs::is_empty(worldsPath)) std::cout<<"Or type an existing name to load:"<<std::endl;
-    std::cout<<""<<std::endl; // extra line
-    try {
-    // iterate over the entries in the directory
-    for (const auto& entry : fs::directory_iterator(worldsPath)) {
-        // check if the entry is a regular file and not a directory
-        if (fs::is_regular_file(entry.status()) && (entry.path().extension() == ".pun")) {
-            std::string str = entry.path().stem().string();
-            std::cout << str << std::endl;
-            worldNames.push_back(str);
-        }
-    }
-    } catch (const fs::filesystem_error& ex) {
-        std::cerr << "Error accessing Worlds directory: " << ex.what() << std::endl;
-    }
-
-    // input block
-    std::cout<<""<<std::endl;
-    std::cout<<"World name: ";
-    std::getline(std::cin, userInput); // read line of input
-    std::cout<<""<<std::endl;
-
-    // check if world exists.
-    bool newWorld = true;
-    for (const std::string& name : worldNames) {
-        if (name == userInput) {
-            newWorld = false;
-            break;
-        }
-    }
+    // world creation or loading.
     std::string worldFilePath = "Worlds/"+userInput+".pun";
-    if (newWorld) std::cout << "Creating world: "<<worldFilePath<< std::endl;
+    if (Startup.newWorld) std::cout << "Creating world: "<<worldFilePath<< std::endl;
     else std::cout << "Loading world: "<<worldFilePath<<"\n"<<std::endl;
 
     // glfw: initialize and configure
@@ -233,7 +165,7 @@ int main() {
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
     // if new world needed, create one, otherwise load file.
-    if (newWorld) {
+    if (Startup.newWorld) {
         // generate terrain
         terrainShader.use();
 
