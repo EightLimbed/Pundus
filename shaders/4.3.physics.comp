@@ -101,7 +101,10 @@ void main() {
         fvp.y--;
         uint fm = morton3D(fvp);
         if (getData(fm) == 0u) {
-            vp = fvp;
+            //vp = fvp;
+            setData(m, 0u);
+            setData(fm, data);
+            break;
         }
 
         // iterate over positions around voxel to check for non vertical movement.

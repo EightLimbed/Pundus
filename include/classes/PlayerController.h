@@ -19,6 +19,7 @@ private:
     float pitch = 0.0f;
     // adjust sensitivity as needed
     float sensitivity = 0.001f;
+    bool lastPPress = true;
 
 public:
     // up direction
@@ -34,6 +35,8 @@ public:
     float dirZ;
     int click = 0;
     int brush = 0;
+    bool physicsToggle = true;
+    bool physicsTick = false;
 
     PlayerController(GLFWwindow *window) {
         posX = 512;
@@ -129,6 +132,16 @@ public:
         } else if (glfwGetKey(window, GLFW_KEY_9) == GLFW_PRESS) {
             brush = 8;
         }
+
+        // hotkeys
+        bool pPress = glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS;
+        if (pPress && lastPPress != pPress) { // pause physics
+            physicsToggle = !physicsToggle;
+            if (physicsToggle) std::cout<<"Physics paused"<<std::endl;
+            else std::cout<<"Physics continued"<<std::endl;
+        }
+        lastPPress = pPress;
+
     }
 
     void HandleMouseInput(GLFWwindow *window) {

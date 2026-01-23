@@ -45,7 +45,7 @@ const std::string worldsPath  = "./Worlds";
 // screen
 unsigned int SCR_WIDTH = 800;
 unsigned int SCR_HEIGHT = 600;
-float RES_MOD = 2.0;
+float RES_MOD = 1.5;
 unsigned int RES_WIDTH = int(float(SCR_WIDTH)/RES_MOD);
 unsigned int RES_HEIGHT = int(float(SCR_HEIGHT)/RES_MOD);
 
@@ -59,7 +59,8 @@ unsigned int AO_SKIPPING = 2;
 unsigned int AO_CELLS = (AO_DIAMETER+1)*(AO_DIAMETER+1)*((AO_DIAMETER+1)/2);
 
 // physics
-unsigned int SIM_AXIS_SIZE = 256; // only does x and z, physics simulated always vertically
+unsigned int SIM_AXIS_SIZE = 384; // only does x and z, physics simulated always vertically
+unsigned int PHYSICS_TICKS = 2;
 
 // brushes
 int brushSize = 1;
@@ -70,15 +71,52 @@ const size_t SSBO1_SIZE = sizeof(GLuint) * (NUM_GUINTS);
 const size_t SSBO2_SIZE = 2*sizeof(GLuint) + sizeof(GL_INT_VEC3)*6*AO_CELLS; // cells amount, plus rectangle of 
 
 int main() {
-    // terminal loop.
+    // MAIN LOOP
     while (true) {
-    // user input on startup.
+    
+    std::cout<<"\033[1m"<<"PUNDUS VOXEL ENGINE" <<"\033[0m"<<"\n"<<std::endl; // title
+    // terminal start loop.
     std::string userInput;
+    while (true) {
+    std::cout << "Type 'help' for a description and guide 'settings' for options, or 'worlds' to continue to worlds management." << "\n" << std::endl;
+    std::cout<<"Input: ";
+    std::getline(std::cin, userInput); // read line of input
+    if (userInput == "help") {
+        std::cout<<"\n\033[1m"<<"PUNDUS HELP" <<"\033[0m"<<"\n"<<std::endl; // title
+        std::cout<<"Pundus is a from-scratch voxel engine made with openGL and C++, with the purpose of enabling visualization and interaction with dynamic worlds."<<std::endl; // description
+        std::cout<<"It features a 1024^3 voxel environment with raytraced lighting, along with a tunable custom ambient occlusion algorithm. There is a rudimentary building system, along with a cellular automata fluid physics engine."<<std::endl; // features
+        std::cout<<"\nTo play, use WASD for movement in XZ plane, space to ascend, and shift to descend."<<std::endl; // how to play
+        std::cout<<"Use left and right click to place and break, and scroll wheel to resize interaction."<<std::endl; // how to play
+        std::cout<<"Other keys include number keys for changing block type, and P for toggling physics.\n"<<std::endl; // how to play
+    } else if (userInput == "settings") {
+        while (true) {
+        std::cout<<"\n\033[1m"<<"PUNDUS SETTINGS" <<"\033[0m"<<"\n"<<std::endl; // title
+        std::cout<<"Settings should be tuned to balance the programs performance with effect for on your computer. Type their keyword to access them:\n"<<std::endl;
+        std::cout<<"Resolution modifier: 'res'                 Currently at: "<<RES_MOD<<std::endl;
+        std::cout<<"Render distance: 'dist'                    Currently at: "<<RENDER_DISTANCE<<std::endl;
+        std::cout<<"Physics simulation distance: 'sim'         Currently at: "<<SIM_AXIS_SIZE<<std::endl;
+        std::cout<<"Physics ticks per frame: 'tick'            Currently at: "<<PHYSICS_TICKS<<std::endl;
+        std::cout<<"Ambient occlusion diameter: 'diam'         Currently at: "<<AO_DIAMETER<<std::endl;
+        std::cout<<"Ambient occlusion frame skipping: 'skip'   Currently at: "<<AO_SKIPPING<<std::endl;
+        std::cout<<"Exit settings: 'exit'"<<std::endl;
+        std::cout<<"\nSetting: ";
+        std::getline(std::cin, userInput); // read line of input
+        if (userInput == "exit") {
+            std::cout<<""<<std::endl;
+            break;
+        }
+        }
+        
+    } else break;
+    }
 
-    std::cout << "To create world, type a name." << std::endl;
-    std::cout << "Or type a world name to load:" << std::endl;
+    // world manager.
+    std::cout<<"\n\033[1m"<<"PUNDUS WORLD MANAGER" <<"\033[0m"<<"\n"<<std::endl; // title
+    std::cout << "To create world, type a new name." << std::endl;
     std::vector<std::string> worldNames = {};
-
+    
+    if (!fs::is_empty(worldsPath)) std::cout<<"Or type an existing name to load:"<<std::endl;
+    std::cout<<""<<std::endl; // extra line
     try {
     // iterate over the entries in the directory
     for (const auto& entry : fs::directory_iterator(worldsPath)) {
@@ -92,7 +130,12 @@ int main() {
     } catch (const fs::filesystem_error& ex) {
         std::cerr << "Error accessing Worlds directory: " << ex.what() << std::endl;
     }
+
+    // input block
+    std::cout<<""<<std::endl;
+    std::cout<<"World name: ";
     std::getline(std::cin, userInput); // read line of input
+    std::cout<<""<<std::endl;
 
     // check if world exists.
     bool newWorld = true;
@@ -104,7 +147,7 @@ int main() {
     }
     std::string worldFilePath = "Worlds/"+userInput+".pun";
     if (newWorld) std::cout << "Creating world: "<<worldFilePath<< std::endl;
-    else std::cout << "Loading world: "<<worldFilePath<< std::endl;
+    else std::cout << "Loading world: "<<worldFilePath<<"\n"<<std::endl;
 
     // glfw: initialize and configure
     glfwInit();
@@ -224,7 +267,7 @@ int main() {
     std::mt19937 gen(rd());
     std::uniform_int_distribution<int> dis(0, 512); // multiple of 8
 
-    // render loop
+    // RENDER LOOP
     float deltaTime = 0.0f;
     float lastTime = 0.0f;
     int lastClick = 0;
@@ -262,7 +305,8 @@ int main() {
         lastClick = Player.click;
 
         // physics pass.
-        for (int i = 0; i < 1; i++) {
+        if (Player.physicsToggle) {
+        for (int i = 0; i < PHYSICS_TICKS; i++) {
         physicsShader.use();
         auto random_number = dis(gen);
         physicsShader.setInt("random", random_number);
@@ -272,7 +316,7 @@ int main() {
         // first *4 is to fit in thread pool, second is to fit in chunk. Physics is done per chunk.
         glDispatchCompute(SIM_AXIS_SIZE/(4*PASS_RES), AXIS_SIZE/(4*PASS_RES), SIM_AXIS_SIZE/(4*PASS_RES));
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-        }
+        }}
 
         // generate terrain
         terrainMaskShader.use();
@@ -332,21 +376,23 @@ int main() {
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
-    std::cout << "FPS: " << 1.0/deltaTime << std::endl; // print fps at time of closing.
 
     // save world to worlds file.
+    glfwHideWindow(window); // hides window so terminal is visible.
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo0);
     void* ptr = glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, SSBO0_SIZE, GL_MAP_READ_BIT);
     if (ptr) {
+        std::cout<<"\n"<<"Saving world to: "<<worldFilePath<<std::endl;
         std::ofstream outFile(worldFilePath, std::ios::binary);
         outFile.write(reinterpret_cast<char*>(ptr), SSBO0_SIZE);
         outFile.close();
         glUnmapBuffer(GL_SHADER_STORAGE_BUFFER); // Unmap after use
-        std::cout<<"World saved to: "<<worldFilePath<<std::endl;
+        std::cout<<"\n"<<"World saved to: "<<worldFilePath<<std::endl;
     } else {
-        std::cout<<"failed to write"<<std::endl;
+        std::cout<<"\n"<<"failed to write"<<std::endl;
     }
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    std::cout<<"\n"<<std::endl;
 
     // glfw: terminate, clearing all previously allocated GLFW resources.
     glfwTerminate();
@@ -367,8 +413,8 @@ void processInput(GLFWwindow *window) {
 }
 
 void updateSettings() {
-    RES_WIDTH = SCR_WIDTH/RES_MOD;
-    RES_HEIGHT = SCR_HEIGHT/RES_MOD;
+    RES_WIDTH = int(float(SCR_WIDTH)/RES_MOD);
+    RES_HEIGHT = int(float(SCR_HEIGHT)/RES_MOD);
     PRE_WIDTH = RES_WIDTH/PASS_RES;
     PRE_HEIGHT = RES_HEIGHT/PASS_RES;
 
@@ -429,7 +475,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     SCR_HEIGHT = height;
 
     std::cout<<"image resized to: "<<RES_WIDTH<<", "<<RES_HEIGHT<<std::endl;
-    std::cout<<"low res pass resized to: "<<PRE_WIDTH<<", "<<PRE_HEIGHT<<std::endl;
+    std::cout<<"low res pass resized to: "<<PRE_WIDTH<<", "<<"\n"<<PRE_HEIGHT<<std::endl;
     
     updateSettings(); // updates settings based on new values.
 
