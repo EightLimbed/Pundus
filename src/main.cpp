@@ -392,9 +392,9 @@ void updateSettings() {
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
     if (yoffset > 0) {
-        if (brushSize < 48) brushSize ++;
+        if (brushSize < 64) brushSize *=2;
     } else {
-        if (brushSize > 1) brushSize --;
+        if (brushSize > 1) brushSize /=2;
     }
 }
 

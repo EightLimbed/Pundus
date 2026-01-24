@@ -137,6 +137,7 @@ void main() {
         m = morton3D(vp);
         cm = morton3D(ivec3(floor(vec3(vp)/passRes))) % 16777216;
         if (getData(m) > 0u) {
+            if (!click) vp -= normal;
             vp -= vp % brushSize;
             place = false;
             break;
@@ -171,7 +172,7 @@ void main() {
     // placing
     } else {
         // recalculate with normal offset.
-        m = morton3D(vp+change-normal*brushSize);
+        m = morton3D(vp+change);
         cm = morton3D(ivec3(floor(vec3(vp+change)/passRes))) % 16777216;
         setData(m, brush+1);
         recalcMask(cm);

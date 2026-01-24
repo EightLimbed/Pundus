@@ -25,7 +25,7 @@ public:
             std::cout<<"Pundus is a voxel engine made with openGL and C++, with the purpose of enabling visualization and interaction with dynamic worlds."<<std::endl; // description
             std::cout<<"It features a 1024^3 voxel environment with raytraced lighting, along with a tunable custom ambient occlusion algorithm. There is a rudimentary building system, along with a cellular automata fluid physics engine."<<std::endl; // features
             std::cout<<"\nTo play, use WASD for movement in XZ plane, space to ascend, and shift to descend."<<std::endl; // how to play
-            std::cout<<"Use left and right click to place and break, and scroll wheel to resize interaction."<<std::endl; // how to play
+            std::cout<<"Use left and right click to place and break, and scroll wheel to resize interaction (interactions resize by doubling or halfing to ensure a uniform grid)."<<std::endl; // how to play
             std::cout<<"Other keys include number keys for changing block type, and P for toggling physics.\n"<<std::endl; // how to play
         } else if (*userInput == "settings") {
             while (true) {
@@ -115,7 +115,7 @@ public:
         } else if (*userInput == "worlds") {
             // world manager.
             std::cout<<"\n\033[1m"<<"PUNDUS WORLD MANAGER" <<"\033[0m"<<"\n"<<std::endl; // title
-            std::cout << "To create world, type a new name." << std::endl;
+            std::cout << "To create world, type a new name, or 'exit' to exit." << std::endl;
             std::vector<std::string> worldNames = {};
             
             if (!fs::is_empty(worldsPath)) std::cout<<"Or type an existing name to load:"<<std::endl;
