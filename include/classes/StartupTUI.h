@@ -73,6 +73,7 @@ public:
                 // attempt to set res mod from input.
                 try {
                     *sim = std::stoi(*userInput);
+                    if (*sim > 1024) *sim = 1024; // safety
                     std::cout << "\nResolution modifier set to: " << *sim << std::endl;
                 } catch (...) {
                     std::cout << "\nInvalid value." << std::endl;
