@@ -290,7 +290,7 @@ int main() {
         highResShader.setFloat("pDirX", Player.dirX);
         highResShader.setFloat("pDirY", Player.dirY);
         highResShader.setFloat("pDirZ", Player.dirZ);
-        highResShader.setFloat("iTime", 1.0);
+        highResShader.setFloat("iTime", currentTime);
 
         // dispatch high res compute shader threads, based on thread pool size of 64.
         glDispatchCompute((RES_WIDTH+7)/8, (RES_HEIGHT+7)/8, 1);

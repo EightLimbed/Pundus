@@ -256,7 +256,7 @@ void main() {
             // if new transparent block, apply stuff.
             if (oldColor != c) {
                 attenuation += t;
-                float skyLight = (data<colorLen) ? getSkyLight(vp, normal, rd, vec3(cos(iTime*0.1), 0.717,sin(iTime*0.1))) : 1.0; // light from sun direction.
+                float skyLight = (data<colorLen) ? getSkyLight(vp, normal, rd, vec3(cos(iTime*0.01), 0.717,sin(iTime*0.01))) : 1.0; // light from sun direction.
                 vec3 shaded = c*skyLight; // shading.
                 color += shaded*t*(1.0 - fog) + fog * colors[colorLen];
             }
